@@ -7,6 +7,8 @@ Academic Computer Vision project for CSE3010.
 from src.config import (
     AppConfig,
     DetectorConfig,
+    GAUSSIAN_KERNEL_SIZE,
+    GAUSSIAN_SIGMA,
     MotionAnalysisConfig,
     OpticalFlowConfig,
     PreprocessingConfig,
@@ -40,7 +42,7 @@ __all__ = [
     "OpticalFlowAnalyzer",
     "MotionAnalyzer",
     "Visualizer",
-    # Configurations
+    # Configurations and Defaults
     "AppConfig",
     "VideoConfig",
     "PreprocessingConfig",
@@ -49,6 +51,8 @@ __all__ = [
     "OpticalFlowConfig",
     "MotionAnalysisConfig",
     "VisualizationConfig",
+    "GAUSSIAN_KERNEL_SIZE",
+    "GAUSSIAN_SIGMA",
     # Data Models
     "BoundingBox",
     "Detection",
