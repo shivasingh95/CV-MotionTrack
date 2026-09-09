@@ -1,7 +1,7 @@
 # CV-MotionTrack: Real-Time Object Detection, Tracking and Motion Analysis System
 
 > **Academic Course Project**: CSE3010 Computer Vision  
-> **Status**: Step 3 — Image Preprocessing Module Implemented & Verified (Grayscale Conversion & Gaussian Filtering)
+> **Status**: Step 4 — Background Modeling, Subtraction & Contour Detection Implemented & Verified
 
 ---
 
@@ -38,9 +38,11 @@ The primary challenge is designing an integrated, loosely coupled pipeline that 
 - **Decoupled Modular Pipeline**: Pure separation of concerns where modules communicate via typed Python dataclasses (`Detection`, `TrackedObject`, `MotionData`).
 - **Flexible Video Acquisition**: Support for both live USB/integrated webcam inputs and recorded video files (`.mp4`, `.avi`).
 - **Centralized Parameter Management**: Unified configuration through `AppConfig` to eliminate hardcoded hyperparameters.
-- **Morphological Artifact Removal**: Erosion and dilation filters (Opening/Closing) to eradicate false-positive camera noise and fill interior blob voids.
-- **Persistent Trajectory Trails**: Historical tracking of object paths with configurable memory limits.
-- **Motion Kinematics & HUD**: Calculation of directional heading, displacement, and velocity displayed on a live telemetry dashboard.
+- **Adaptive Background Modeling**: Online Gaussian Mixture Model (MOG2) that learns the scene background over time and flags deviating pixels as foreground.
+- **Moving-Object Region Identification**: Thresholding, morphological cleaning (Opening + Closing), and contour extraction isolate candidate moving-object bounding boxes from every frame.
+- **Morphological Artifact Removal**: Erosion and dilation filters (Opening/Closing) eradicate false-positive camera noise and fill interior blob voids.
+- **Persistent Trajectory Trails**: Historical tracking of object paths with configurable memory limits (interface scaffolded; implementation planned).
+- **Motion Kinematics & HUD**: Calculation of directional heading, displacement, and velocity displayed on a live telemetry dashboard (planned).
 - **Headless Execution Mode**: Command-line flag allowing automated testing and server-side execution without requiring an X11/GUI display.
 
 ---
@@ -51,11 +53,12 @@ This project directly implements foundational concepts from the CSE3010 Computer
 
 | Syllabus Concept | Module | Implementation Status | Technical Description |
 |---|---|---|---|
-| **Grayscale Conversion** | `src/preprocessing.py` | **Implemented & Tested** | Luminance weighting $Y = 0.299R + 0.587G + 0.114B$ via `cv2.cvtColor`. |
-| **Gaussian Spatial Filtering** | `src/preprocessing.py` | **Implemented & Tested** | 2D isotropic Gaussian convolution $G(x, y; \sigma)$ for high-frequency sensor noise attenuation. |
-| **Background Modeling & Subtraction** | `src/detector.py` | Planned (Interface scaffolded) | Adaptive Gaussian Mixture Models (MOG2) / KNN background modeling. |
-| **Morphological Processing** | `src/detector.py` | Planned (Interface scaffolded) | Morphological Opening (erosion $\to$ dilation) and Closing (dilation $\to$ erosion). |
-| **Contour & Connected Components** | `src/detector.py` | Planned (Interface scaffolded) | Border extraction, bounding box estimation, and moment-based centroid calculation. |
+| **Grayscale Conversion** | `src/preprocessing.py` | **✅ Implemented & Tested** | Luminance weighting $Y = 0.299R + 0.587G + 0.114B$ via `cv2.cvtColor`. |
+| **Gaussian Spatial Filtering** | `src/preprocessing.py` | **✅ Implemented & Tested** | 2D isotropic Gaussian convolution $G(x, y; \sigma)$ for high-frequency sensor noise attenuation. |
+| **Background Modeling** | `src/detector.py` | **✅ Implemented & Tested** | Adaptive Gaussian Mixture Model (MOG2) — online per-pixel statistical background learning. |
+| **Background Subtraction & Foreground Extraction** | `src/detector.py` | **✅ Implemented & Tested** | Per-pixel comparison against GMM; ternary mask (bg=0, shadow=127, fg=255) + binary threshold. |
+| **Morphological Processing** | `src/detector.py` | **✅ Implemented & Tested** | Opening $(A \ominus B) \oplus B$ removes noise; Closing $(A \oplus B) \ominus B$ fills holes. |
+| **Contour-Based Object Detection** | `src/detector.py` | **✅ Implemented & Tested** | `cv2.findContours` + area filter + bounding rect + moment centroid → `List[Detection]`. |
 | **Object Tracking & Association** | `src/tracker.py` | Planned (Interface scaffolded) | Pairwise Euclidean centroid matching and state-machine trajectory maintenance. |
 | **Optical Flow (Lucas-Kanade)** | `src/optical_flow.py` | Planned (Interface scaffolded) | Differential intensity spatial-temporal gradients for motion field estimation. |
 | **KLT Feature Tracking** | `src/optical_flow.py` | Planned (Interface scaffolded) | Shi-Tomasi corner eigenvalue extraction (`goodFeaturesToTrack`). |

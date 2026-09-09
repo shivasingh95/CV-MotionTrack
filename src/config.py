@@ -14,6 +14,17 @@ from typing import Tuple, Union
 GAUSSIAN_KERNEL_SIZE: Tuple[int, int] = (5, 5)
 GAUSSIAN_SIGMA: float = 0.0
 
+# Detector / Background-Subtraction Hyperparameter Defaults
+BACKGROUND_HISTORY: int = 500
+BACKGROUND_VAR_THRESHOLD: float = 16.0
+DETECT_SHADOWS: bool = True
+SHADOW_PIXEL_VALUE: int = 127        # OpenCV MOG2 marks shadows as 127
+MORPH_KERNEL_SIZE: Tuple[int, int] = (3, 3)
+MORPH_OPEN_ITERATIONS: int = 1
+MORPH_CLOSE_ITERATIONS: int = 2
+MIN_OBJECT_AREA: float = 500.0
+MAX_OBJECT_AREA: float = 100_000.0
+
 
 @dataclass
 class VideoConfig:
@@ -39,17 +50,17 @@ class PreprocessingConfig:
 @dataclass
 class DetectorConfig:
     """Settings for background modeling, subtraction, and contour detection."""
-    # Background subtraction algorithm: 'MOG2', 'KNN', or 'FRAME_DIFF'
+    # Background subtraction algorithm: 'MOG2' or 'KNN'
     subtractor_type: str = "MOG2"
-    history: int = 500
-    var_threshold: float = 25.0
-    detect_shadows: bool = True
-    shadow_threshold: int = 127
-    min_contour_area: float = 500.0
-    max_contour_area: float = 100000.0
-    morph_kernel_size: Tuple[int, int] = (3, 3)
-    morph_open_iterations: int = 1
-    morph_close_iterations: int = 2
+    history: int = BACKGROUND_HISTORY
+    var_threshold: float = BACKGROUND_VAR_THRESHOLD
+    detect_shadows: bool = DETECT_SHADOWS
+    shadow_threshold: int = SHADOW_PIXEL_VALUE
+    min_contour_area: float = MIN_OBJECT_AREA
+    max_contour_area: float = MAX_OBJECT_AREA
+    morph_kernel_size: Tuple[int, int] = MORPH_KERNEL_SIZE
+    morph_open_iterations: int = MORPH_OPEN_ITERATIONS
+    morph_close_iterations: int = MORPH_CLOSE_ITERATIONS
 
 
 @dataclass

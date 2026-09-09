@@ -98,3 +98,128 @@ The following classical algorithms interface directly with the preprocessed fram
 
 ### 2.4 Motion Kinematics (Step 7)
 - Discrete spatial displacement $\Delta d$, angular heading $\theta = \text{atan2}(\Delta y, \Delta x)$, and velocity $v = \frac{\Delta d}{\Delta t}$ estimation.
+
+---
+
+## 3. Background Modeling and Subtraction (Step 4 – Implemented)
+
+### 3.1 What Background Modeling Means
+
+Background modeling is the process of constructing a statistical representation of the **static (non-moving) scene** from a sequence of video frames. The model captures the expected pixel intensity distribution for each spatial location $(x, y)$ in the absence of moving objects. Once the background model is established, any incoming frame can be compared against it; pixels whose intensities deviate significantly from the model are classified as **foreground** — i.e., they belong to something that has moved or appeared in the scene.
+
+### 3.2 Why Background Subtraction Is Useful for Moving-Object Detection
+
+Classical foreground segmentation by background subtraction is:
+
+- **Computationally cheap**: The decision per pixel is a single arithmetic comparison against a learned model rather than an expensive forward pass through a neural network.
+- **Training-data-free**: No labelled dataset is needed; the model is built in real time from the first few seconds of video.
+- **Interpretable**: The intermediate foreground mask is a binary image that can be directly inspected and qualitatively validated.
+- **Well-suited to fixed or near-fixed cameras**: Surveillance cameras, traffic monitoring systems, and lab setups all benefit from a stable background assumption.
+
+### 3.3 Gaussian Mixture Model Background Subtraction (MOG2)
+
+The OpenCV implementation used in this project, `cv2.createBackgroundSubtractorMOG2`, is based on the work of Zivkovic (2004). It models the temporal intensity history of every pixel $(x, y)$ as a **Mixture of $K$ Gaussians**:
+
+$$P(I_t(x,y)) = \sum_{k=1}^{K} \omega_k \cdot \mathcal{N}\!\left(I_t(x,y);\, \mu_k,\, \sigma_k^2\right)$$
+
+where:
+- $K$ is the number of Gaussian components (typically 3–7, chosen adaptively).
+- $\omega_k$ is the mixture weight (relative frequency) of component $k$.
+- $\mu_k, \sigma_k^2$ are the mean and variance of component $k$, updated online with each new frame.
+
+A pixel is classified as **background** if its intensity is well-explained by one of the $K$ Gaussians (i.e., lies within $\sqrt{\text{varThreshold}}$ standard deviations of any component mean). Otherwise it is classified as **foreground**.
+
+The **`history`** parameter controls the effective time window: a shorter history makes the model adapt faster to environmental changes (e.g., moving curtains) but is more susceptible to sudden noise.
+
+### 3.4 What a Foreground Mask Represents
+
+The output of `apply_background_subtraction(frame)` is a single-channel `uint8` image of the same spatial dimensions as the input:
+
+| Pixel value | Meaning |
+|---|---|
+| `0`   | Background — pixel matches the learned background model. |
+| `127` | Shadow — partial illumination change detected (if `detectShadows=True`). |
+| `255` | Foreground — pixel does not match background; belongs to a moving object. |
+
+This three-valued raw mask is the direct output of the Gaussian mixture evaluation.
+
+### 3.5 Why Thresholding Is Needed
+
+MOG2 shadow detection is valuable for robustness, but shadow pixels (value `127`) are *not* moving objects — they are simply regions where an object casts a shadow on the background. Passing shadow pixels into contour analysis would produce spurious bounding boxes around shadow shapes.
+
+A binary threshold at `pixel_value > 127` converts the ternary mask to a strict binary mask `{0, 255}`:
+
+$$M_{\text{binary}}(x,y) = \begin{cases} 255 & \text{if } M_{\text{raw}}(x,y) > 127 \\ 0 & \text{otherwise} \end{cases}$$
+
+This discards all shadow pixels and retains only genuine foreground detections.
+
+### 3.6 Why Morphological Opening and Closing Are Used
+
+Even after thresholding, the binary mask contains two categories of artifact that degrade downstream contour analysis:
+
+**Problem 1 — Salt-and-pepper noise**  
+Random foreground pixels caused by camera sensor noise, JPEG compression, or rapid illumination flicker.  
+**Solution — Morphological Opening** (erosion followed by dilation):
+
+$$M_{\text{open}} = (M_{\text{binary}} \ominus B) \oplus B$$
+
+Erosion $\ominus$ shrinks every foreground region.  Isolated noise pixels, which are narrower than the structuring element $B$, disappear entirely.  The subsequent dilation $\oplus$ restores the boundary of the remaining (genuine) regions to approximately their original position.
+
+**Problem 2 — Intra-object holes and gaps**  
+Moving objects may have regions of low texture (e.g., a uniformly coloured t-shirt) that do not differ from the background, creating dark holes inside the foreground blob.  These cause a single object to produce multiple small contours.  
+**Solution — Morphological Closing** (dilation followed by erosion):
+
+$$M_{\text{close}} = (M_{\text{open}} \oplus B) \ominus B$$
+
+Dilation $\oplus$ expands the foreground regions, bridging nearby gaps.  The subsequent erosion $\ominus$ shrinks them back, leaving the outer boundary roughly intact while the interior holes are filled.
+
+Both operations use a small rectangular structuring element (default $3 \times 3$) whose size is configurable via `MORPH_KERNEL_SIZE` in `config.py`.
+
+### 3.7 How Contours Are Used to Obtain Object Regions
+
+After morphological cleaning the mask is a smooth binary image where connected white blobs represent candidate moving objects.  `cv2.findContours` with `cv2.RETR_EXTERNAL` traces the outer boundary of each blob using border-following.
+
+For each contour:
+
+1. **Area filter** — contours with pixel area $< \text{MIN\_OBJECT\_AREA}$ or $> \text{MAX\_OBJECT\_AREA}$ are discarded.
+2. **Bounding rectangle** — `cv2.boundingRect(contour)` returns $(x, y, w, h)$.
+3. **Centroid from image moments** — the centroid $(c_x, c_y)$ is more accurate than the bounding-rect centre for non-rectangular blobs:
+   $$c_x = \frac{M_{10}}{M_{00}}, \qquad c_y = \frac{M_{01}}{M_{00}}$$
+   where $M_{pq} = \sum_{x} \sum_{y} x^p y^q \cdot I(x,y)$ are spatial image moments.
+4. A `Detection` dataclass instance is created and appended to the result list.
+
+### 3.8 Conceptual Workflow Summary
+
+```
+Raw video frame  (H × W × 3, BGR)
+        │
+        ▼
+Preprocessor — grayscale + Gaussian smoothing
+        │
+        ▼  preprocessed frame (H × W, uint8)
+        │
+        ▼
+Background Model (MOG2 GMM, online update)
+        │
+        ▼  raw foreground mask {0, 127, 255}
+        │
+        ▼
+Threshold at 127 → binary mask {0, 255}
+        │
+        ▼
+Morphological Opening  (remove speckle noise)
+        │
+        ▼
+Morphological Closing  (fill intra-object gaps)
+        │
+        ▼  clean binary mask
+        │
+        ▼
+cv2.findContours → filter by area
+        │
+        ▼
+List[Detection]  (bbox, centroid, area)
+        │
+        ▼ (next step)
+ObjectTracker
+```
