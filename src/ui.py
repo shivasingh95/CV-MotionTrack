@@ -1,20 +1,17 @@
 """
 Desktop User Interface (GUI) module for CV-MotionTrack.
 
-Academic Computer Vision project for CSE3010 - Step 10.
-Implements the professional presentation and final demonstration layer:
+Academic Computer Vision project for CSE3010 - Step 10 & 11.
+Implements a professional, highly readable presentation and demonstration layer:
 - Clean Tkinter desktop interface with responsive multi-threaded pipeline execution
-- Live aspect-ratio preserving video canvas with idle placeholder
-- Complete interactive controls: Start Webcam, Open Video, Process, Pause, Resume, Reset, Save Frame, Stop
-- Real-time adjustable vision hyperparameters (Min Area, Tracker Distance, Disappeared Frames, Flow Corners, Var Threshold)
-- Real-time statistics telemetry (FPS, Detections, Active Tracks, Flow Points, Moving vs Stationary)
-- Live tracked object information table (ID, Direction, Displacement, Velocity, Trajectory)
+- High-contrast Slate theme with clear visual hierarchy and readable typography
+- Live aspect-ratio preserving video canvas with idle helper artwork
+- Step-by-step control panel: Input Source -> Pipeline Execution -> Live Telemetry
+- Large, bold telemetry cards (FPS, Detections, Active Tracks, Flow Points, Velocity)
+- Clear Tracked Objects Kinematics table with custom column formatting
+- Intuitive vision hyperparameter tuning sliders with helpful plain-English descriptions
 - Keyboard shortcuts: Q/ESC=Exit, P=Pause/Resume, R=Reset, S=Save Frame
-- Timestamped screenshot capture: results/screenshots/motiontrack_YYYY_MM_DD_HHMMSS.png
-
-Academic Note:
-The UI functions solely as the presentation controller and does not contain
-computer vision algorithms directly. It coordinates the underlying modular components.
+- Timestamped screenshot capture saved to results/screenshots/
 """
 
 from datetime import datetime
@@ -71,8 +68,8 @@ class CVMotionTrackApp:
         """
         self.root = root
         self.root.title("CV-MotionTrack - Real-Time Motion Analysis System")
-        self.root.geometry("1240x820")
-        self.root.minsize(1080, 720)
+        self.root.geometry("1380x880")
+        self.root.minsize(1180, 750)
 
         # Apply dark theme styling
         self._setup_styles()
@@ -98,7 +95,7 @@ class CVMotionTrackApp:
         self.stop_event = threading.Event()
         self.worker_thread: Optional[threading.Thread] = None
 
-        # Thread-safe queue for frame delivery (maxsize 2 drops stale frames to preserve real-time responsiveness)
+        # Thread-safe queue for frame delivery (maxsize 2 drops stale frames)
         self.frame_queue: queue.Queue = queue.Queue(maxsize=2)
         self.latest_annotated_frame: Optional[np.ndarray] = None
         self.photo_image: Optional[ImageTk.PhotoImage] = None
@@ -118,141 +115,186 @@ class CVMotionTrackApp:
     # ---------------------------------------------------------------------- #
 
     def _setup_styles(self) -> None:
-        """Configure modern dark ttk visual styles."""
-        self.root.configure(bg="#1e1e1e")
+        """Configure high-contrast, modern slate visual styles."""
+        # Deep Slate Palette (Tailwind Slate-900 / Slate-800)
+        self.bg_dark = "#0f172a"
+        self.bg_card = "#1e293b"
+        self.bg_card_border = "#334155"
+        self.fg_white = "#f8fafc"
+        self.fg_muted = "#94a3b8"
+        self.accent_cyan = "#38bdf8"
+        self.accent_blue = "#0284c7"
+        self.accent_emerald = "#34d399"
+        self.accent_purple = "#a78bfa"
+        self.accent_amber = "#fbbf24"
+
+        self.root.configure(bg=self.bg_dark)
         style = ttk.Style(self.root)
         style.theme_use("clam")
 
-        # Color palette
-        bg_dark = "#1e1e1e"
-        bg_card = "#252526"
-        fg_white = "#ffffff"
-        fg_light = "#cccccc"
-        accent_blue = "#007acc"
+        # Base Frame Styles
+        style.configure("TFrame", background=self.bg_dark)
+        style.configure("Card.TFrame", background=self.bg_card, relief="flat")
 
-        # Frame styles
-        style.configure("TFrame", background=bg_dark)
-        style.configure("Card.TFrame", background=bg_card, relief="flat")
+        # Label Styles
+        style.configure("TLabel", background=self.bg_dark, foreground=self.fg_white, font=("Segoe UI", 10))
+        style.configure("Card.TLabel", background=self.bg_card, foreground=self.fg_white, font=("Segoe UI", 10))
+        style.configure("HeaderTitle.TLabel", background=self.bg_dark, foreground=self.accent_cyan, font=("Segoe UI", 18, "bold"))
+        style.configure("HeaderSub.TLabel", background=self.bg_dark, foreground=self.fg_muted, font=("Segoe UI", 10))
+        style.configure("SectionTitle.TLabel", background=self.bg_card, foreground=self.accent_cyan, font=("Segoe UI", 11, "bold"))
 
-        # Label styles
-        style.configure("TLabel", background=bg_dark, foreground=fg_white, font=("Segoe UI", 10))
-        style.configure("Card.TLabel", background=bg_card, foreground=fg_white, font=("Segoe UI", 10))
-        style.configure("HeaderTitle.TLabel", background=bg_dark, foreground="#4fc1ff", font=("Segoe UI", 18, "bold"))
-        style.configure("HeaderSub.TLabel", background=bg_dark, foreground=fg_light, font=("Segoe UI", 10))
-        style.configure("StatKey.TLabel", background=bg_card, foreground="#9cdcfe", font=("Segoe UI", 9, "bold"))
-        style.configure("StatVal.TLabel", background=bg_card, foreground="#4ec9b0", font=("Consolas", 10, "bold"))
+        # Stat Card Styles
+        style.configure("StatBox.TFrame", background="#090d16", relief="solid", borderwidth=1)
+        style.configure("StatTitle.TLabel", background="#090d16", foreground=self.fg_muted, font=("Segoe UI", 9, "bold"))
 
-        # Button styles
-        style.configure("TButton", font=("Segoe UI", 9, "bold"), padding=5)
-        style.map("TButton", background=[("active", "#37373d"), ("!disabled", "#2d2d30")], foreground=[("!disabled", fg_white)])
-        style.configure("Action.TButton", font=("Segoe UI", 9, "bold"), padding=6)
-        style.map("Action.TButton", background=[("active", "#1f8ad2"), ("!disabled", accent_blue)], foreground=[("!disabled", fg_white)])
+        # Button Styles
+        style.configure("TButton", font=("Segoe UI", 9, "bold"), padding=6)
+        style.map("TButton", background=[("active", "#334155"), ("!disabled", "#334155")], foreground=[("!disabled", self.fg_white)])
 
-        # LabelFrame styles
-        style.configure("TLabelframe", background=bg_card, foreground="#4fc1ff")
-        style.configure("TLabelframe.Label", background=bg_card, foreground="#4fc1ff", font=("Segoe UI", 10, "bold"))
+        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=8)
+        style.map("Action.TButton", background=[("active", "#0369a1"), ("!disabled", self.accent_blue)], foreground=[("!disabled", self.fg_white)])
 
-        # Treeview styles
-        style.configure("Treeview", background="#1e1e1e", foreground=fg_white, fieldbackground="#1e1e1e", font=("Consolas", 9), rowheight=22)
-        style.configure("Treeview.Heading", background="#2d2d30", foreground="#9cdcfe", font=("Segoe UI", 9, "bold"))
-        style.map("Treeview", background=[("selected", "#094771")], foreground=[("selected", fg_white)])
+        style.configure("Stop.TButton", font=("Segoe UI", 9, "bold"), padding=6)
+        style.map("Stop.TButton", background=[("active", "#be123c"), ("!disabled", "#e11d48")], foreground=[("!disabled", self.fg_white)])
+
+        # LabelFrame Styles
+        style.configure("TLabelframe", background=self.bg_card, foreground=self.accent_cyan, borderwidth=1, relief="solid")
+        style.configure("TLabelframe.Label", background=self.bg_card, foreground=self.accent_cyan, font=("Segoe UI", 10, "bold"))
+
+        # Treeview Styles (Tracked Objects Table)
+        style.configure("Treeview", background="#090d16", foreground=self.fg_white, fieldbackground="#090d16", font=("Consolas", 10), rowheight=26)
+        style.configure("Treeview.Heading", background="#334155", foreground=self.accent_cyan, font=("Segoe UI", 9, "bold"))
+        style.map("Treeview", background=[("selected", "#0284c7")], foreground=[("selected", self.fg_white)])
+
+        # Scrollbar
+        style.configure("TScrollbar", background=self.bg_card, troughcolor="#090d16", borderwidth=0)
 
     def _create_widgets(self) -> None:
-        """Construct the main responsive UI grid layout."""
-        # Top Header Frame
-        header_frame = ttk.Frame(self.root, padding="15 10 15 5")
+        """Construct the intuitive, readable responsive UI layout."""
+        # Top Header Bar
+        header_frame = ttk.Frame(self.root, padding="15 12 15 8")
         header_frame.pack(side=tk.TOP, fill=tk.X)
 
-        title_label = ttk.Label(header_frame, text="CV-MotionTrack", style="HeaderTitle.TLabel")
+        title_box = ttk.Frame(header_frame)
+        title_box.pack(side=tk.LEFT)
+
+        title_label = ttk.Label(title_box, text="CV-MotionTrack", style="HeaderTitle.TLabel")
         title_label.pack(anchor=tk.W)
 
         subtitle_label = ttk.Label(
-            header_frame,
-            text="Real-Time Object Detection, Tracking and Motion Analysis System (CSE3010)",
+            title_box,
+            text="Real-Time Object Detection, Multi-Target Tracking & Motion Kinematics System (CSE3010)",
             style="HeaderSub.TLabel",
         )
         subtitle_label.pack(anchor=tk.W)
 
-        # Horizontal separator
+        # Status Badge Indicator at Top Right
+        self.badge_frame = tk.Frame(header_frame, bg="#334155", padx=12, pady=6)
+        self.badge_frame.pack(side=tk.RIGHT)
+
+        self.status_badge_var = tk.StringVar(value="● READY")
+        self.status_badge_lbl = tk.Label(
+            self.badge_frame,
+            textvariable=self.status_badge_var,
+            bg="#334155",
+            fg="#38bdf8",
+            font=("Segoe UI", 11, "bold"),
+        )
+        self.status_badge_lbl.pack()
+
+        # Horizontal Divider
         sep = ttk.Separator(self.root, orient=tk.HORIZONTAL)
-        sep.pack(fill=tk.X, padx=15, pady=5)
+        sep.pack(fill=tk.X, padx=15, pady=4)
 
-        # Main Body Splitter: Left = Video Canvas, Right = Controls & Statistics
-        body_paned = ttk.Frame(self.root, padding="15 5 15 15")
-        body_paned.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        # Main Body Splitter
+        body_container = ttk.Frame(self.root, padding="15 5 15 15")
+        body_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # Left Column: Video View & Status Bar
-        left_frame = ttk.Frame(body_paned)
-        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+        # ------------------------------------------------------------------ #
+        # LEFT COLUMN: Live Video View & Stream Info                          #
+        # ------------------------------------------------------------------ #
+        left_frame = ttk.Frame(body_container)
+        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 12))
 
         # Video Canvas Container
-        self.video_container = tk.Frame(left_frame, bg="#111111", bd=2, relief=tk.SUNKEN)
+        self.video_container = tk.Frame(left_frame, bg="#020617", bd=2, relief=tk.SOLID, highlightbackground="#334155", highlightthickness=1)
         self.video_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         self.video_label = tk.Label(
             self.video_container,
-            text="No Video Loaded\n\nClick 'Start Webcam' or 'Open Video' to begin processing.",
-            bg="#111111",
-            fg="#888888",
-            font=("Segoe UI", 12),
+            text="🎥  CV-MotionTrack Ready\n\n1. Select Input Source ('Start Webcam' or 'Open Video')\n2. Click '▶ Start Processing' to run live motion analysis",
+            bg="#020617",
+            fg="#94a3b8",
+            font=("Segoe UI", 13),
             justify=tk.CENTER,
         )
         self.video_label.pack(fill=tk.BOTH, expand=True)
 
-        # Status Bar beneath video
-        status_bar = ttk.Frame(left_frame, padding="5 5 5 0")
+        # Stream Status Footer beneath video
+        status_bar = ttk.Frame(left_frame, padding="6 6 6 0")
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
-        self.status_text = tk.StringVar(value="Status: Ready | Select input source")
-        self.status_label = ttk.Label(status_bar, textvariable=self.status_text, font=("Segoe UI", 9, "italic"), foreground="#b5cea8")
+        self.status_text = tk.StringVar(value="Status: System initialized. Select video source.")
+        self.status_label = ttk.Label(status_bar, textvariable=self.status_text, font=("Segoe UI", 10, "italic"), foreground="#34d399")
         self.status_label.pack(side=tk.LEFT)
 
-        self.source_text = tk.StringVar(value="Source: None")
-        self.source_label = ttk.Label(status_bar, textvariable=self.source_text, font=("Segoe UI", 9), foreground="#dcdcaa")
+        self.source_text = tk.StringVar(value="Source: Webcam (Device 0)")
+        self.source_label = tk.Label(status_bar, textvariable=self.source_text, font=("Segoe UI", 10, "bold"), bg=self.bg_dark, fg="#fde047")
         self.source_label.pack(side=tk.RIGHT)
 
-        # Right Column: Controls, Telemetry HUD, Objects Table, Tunable Settings
-        right_frame = ttk.Frame(body_paned, width=440)
-        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(5, 0))
+        # ------------------------------------------------------------------ #
+        # RIGHT COLUMN: Control Panel, Live Telemetry Cards & Vision Settings #
+        # ------------------------------------------------------------------ #
+        right_frame = ttk.Frame(body_container, width=480)
+        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(4, 0))
         right_frame.pack_propagate(False)
 
-        # 1. Control Buttons Card
-        controls_group = ttk.LabelFrame(right_frame, text=" Pipeline Controls ", padding=10)
+        # ------------------------------------------------------------------ #
+        # 1. INPUT SOURCE & EXECUTION CONTROL PANEL                         #
+        # ------------------------------------------------------------------ #
+        controls_group = ttk.LabelFrame(right_frame, text=" 1. Input Source & Pipeline Control ", padding=10)
         controls_group.pack(fill=tk.X, pady=(0, 10))
 
         # Row 1: Source Selection
-        self.btn_webcam = ttk.Button(controls_group, text="🎥 Start Webcam", command=self.start_webcam)
-        self.btn_webcam.grid(row=0, column=0, padx=4, pady=4, sticky="ew")
+        src_frame = ttk.Frame(controls_group)
+        src_frame.pack(fill=tk.X, pady=(0, 6))
 
-        self.btn_open_file = ttk.Button(controls_group, text="📁 Open Video", command=self.open_video_dialog)
-        self.btn_open_file.grid(row=0, column=1, padx=4, pady=4, sticky="ew")
+        self.btn_webcam = ttk.Button(src_frame, text="🎥 Use Webcam", command=self.start_webcam)
+        self.btn_webcam.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
 
-        # Row 2: Pipeline Execution
-        self.btn_start = ttk.Button(controls_group, text="▶ Start Processing", style="Action.TButton", command=self.start_processing)
-        self.btn_start.grid(row=1, column=0, padx=4, pady=4, sticky="ew")
+        self.btn_open_file = ttk.Button(src_frame, text="📁 Open Video File...", command=self.open_video_dialog)
+        self.btn_open_file.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(4, 0))
 
-        self.btn_stop = ttk.Button(controls_group, text="⏹ Stop", command=self.stop_processing, state=tk.DISABLED)
-        self.btn_stop.grid(row=1, column=1, padx=4, pady=4, sticky="ew")
+        # Row 2: Primary Start / Stop Execution
+        exec_frame = ttk.Frame(controls_group)
+        exec_frame.pack(fill=tk.X, pady=(0, 6))
 
-        # Row 3: Live Actions
-        self.btn_pause = ttk.Button(controls_group, text="⏸ Pause", command=self.pause_processing, state=tk.DISABLED)
-        self.btn_pause.grid(row=2, column=0, padx=4, pady=4, sticky="ew")
+        self.btn_start = ttk.Button(exec_frame, text="▶ START PROCESSING", style="Action.TButton", command=self.start_processing)
+        self.btn_start.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
 
-        self.btn_resume = ttk.Button(controls_group, text="⏯ Resume", command=self.resume_processing, state=tk.DISABLED)
-        self.btn_resume.grid(row=2, column=1, padx=4, pady=4, sticky="ew")
+        self.btn_stop = ttk.Button(exec_frame, text="⏹ STOP", style="Stop.TButton", command=self.stop_processing, state=tk.DISABLED)
+        self.btn_stop.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(4, 0))
 
-        # Row 4: Utility Actions
-        self.btn_reset = ttk.Button(controls_group, text="🔄 Reset State", command=self.reset_pipeline)
-        self.btn_reset.grid(row=3, column=0, padx=4, pady=4, sticky="ew")
+        # Row 3: Live Control Actions
+        action_frame = ttk.Frame(controls_group)
+        action_frame.pack(fill=tk.X)
 
-        self.btn_save_frame = ttk.Button(controls_group, text="📸 Save Frame", command=self.save_current_frame)
-        self.btn_save_frame.grid(row=3, column=1, padx=4, pady=4, sticky="ew")
+        self.btn_pause = ttk.Button(action_frame, text="⏸ Pause", command=self.pause_processing, state=tk.DISABLED)
+        self.btn_pause.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
 
-        controls_group.columnconfigure(0, weight=1)
-        controls_group.columnconfigure(1, weight=1)
+        self.btn_resume = ttk.Button(action_frame, text="⏯ Resume", command=self.resume_processing, state=tk.DISABLED)
+        self.btn_resume.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
 
-        # 2. Live Telemetry Statistics Card
-        stats_group = ttk.LabelFrame(right_frame, text=" Live Pipeline Telemetry ", padding=10)
+        self.btn_reset = ttk.Button(action_frame, text="🔄 Reset", command=self.reset_pipeline)
+        self.btn_reset.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+
+        self.btn_save_frame = ttk.Button(action_frame, text="📸 Save Frame", command=self.save_current_frame)
+        self.btn_save_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(2, 0))
+
+        # ------------------------------------------------------------------ #
+        # 2. LIVE PIPELINE TELEMETRY STATS HUD CARDS                        #
+        # ------------------------------------------------------------------ #
+        stats_group = ttk.LabelFrame(right_frame, text=" 2. Live Telemetry HUD ", padding=10)
         stats_group.pack(fill=tk.X, pady=(0, 10))
 
         self.stat_vars: Dict[str, tk.StringVar] = {
@@ -264,49 +306,54 @@ class CVMotionTrackApp:
             "moving": tk.StringVar(value="0"),
             "stationary": tk.StringVar(value="0"),
         }
+        self.stat_moving_stat_var = tk.StringVar(value="0 / 0")
 
-        # Telemetry labels in 2-column grid
-        stat_rows = [
-            ("Throughput (FPS):", "fps", "Frame Number:", "frame"),
-            ("Detected Blobs:", "detections", "Active Tracks:", "tracks"),
-            ("Optical Flow Pts:", "flow_points", "Moving / Stationary:", "moving"),
+        # 6 Card Stat Boxes Grid
+        stat_grid = ttk.Frame(stats_group)
+        stat_grid.pack(fill=tk.X)
+
+        stat_cards = [
+            ("THROUGHPUT", "fps", self.stat_vars["fps"], self.accent_emerald, 0, 0),
+            ("FRAME NO.", "frame", self.stat_vars["frame"], self.accent_cyan, 0, 1),
+            ("DETECTIONS", "detections", self.stat_vars["detections"], self.accent_purple, 0, 2),
+            ("ACTIVE TRACKS", "tracks", self.stat_vars["tracks"], "#f472b6", 1, 0),
+            ("OPTICAL FLOW", "flow_points", self.stat_vars["flow_points"], self.accent_amber, 1, 1),
+            ("MOVING / STAT", "moving_stat", self.stat_moving_stat_var, "#2dd4bf", 1, 2),
         ]
 
-        for r, (k1, v1, k2, v2) in enumerate(stat_rows):
-            ttk.Label(stats_group, text=k1, style="StatKey.TLabel").grid(row=r, column=0, sticky="w", pady=2)
-            ttk.Label(stats_group, textvariable=self.stat_vars[v1], style="StatVal.TLabel").grid(row=r, column=1, sticky="w", padx=(0, 10), pady=2)
+        for title, key, var, color, r, c in stat_cards:
+            box = tk.Frame(stat_grid, bg="#090d16", bd=1, relief=tk.SOLID, highlightbackground="#334155", highlightthickness=1, padx=8, pady=5)
+            box.grid(row=r, column=c, padx=3, pady=3, sticky="nsew")
 
-            ttk.Label(stats_group, text=k2, style="StatKey.TLabel").grid(row=r, column=2, sticky="w", pady=2)
-            if v2 == "moving":
-                # Special combined label for moving / stationary
-                self.stat_moving_stat_var = tk.StringVar(value="0 / 0")
-                ttk.Label(stats_group, textvariable=self.stat_moving_stat_var, style="StatVal.TLabel").grid(row=r, column=3, sticky="w", pady=2)
-            else:
-                ttk.Label(stats_group, textvariable=self.stat_vars[v2], style="StatVal.TLabel").grid(row=r, column=3, sticky="w", pady=2)
+            lbl_title = tk.Label(box, text=title, bg="#090d16", fg=self.fg_muted, font=("Segoe UI", 8, "bold"))
+            lbl_title.pack(anchor=tk.W)
 
-        stats_group.columnconfigure(0, weight=1)
-        stats_group.columnconfigure(1, weight=1)
-        stats_group.columnconfigure(2, weight=1)
-        stats_group.columnconfigure(3, weight=1)
+            lbl_val = tk.Label(box, textvariable=var, bg="#090d16", fg=color, font=("Consolas", 11, "bold"))
+            lbl_val.pack(anchor=tk.E, pady=(2, 0))
 
-        # 3. Tracked Objects Telemetry Table
-        table_group = ttk.LabelFrame(right_frame, text=" Tracked Object Kinematics ", padding=8)
+        for c in range(3):
+            stat_grid.columnconfigure(c, weight=1)
+
+        # ------------------------------------------------------------------ #
+        # 3. TRACKED OBJECT KINEMATICS TABLE                                 #
+        # ------------------------------------------------------------------ #
+        table_group = ttk.LabelFrame(right_frame, text=" 3. Tracked Object Kinematics ", padding=8)
         table_group.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
         columns = ("id", "direction", "disp", "velocity", "length")
         self.objects_tree = ttk.Treeview(table_group, columns=columns, show="headings", height=5)
 
         self.objects_tree.heading("id", text="ID")
-        self.objects_tree.heading("direction", text="Direction")
+        self.objects_tree.heading("direction", text="Heading Direction")
         self.objects_tree.heading("disp", text="Disp (px)")
         self.objects_tree.heading("velocity", text="Vel (px/s)")
         self.objects_tree.heading("length", text="Trail")
 
-        self.objects_tree.column("id", width=42, anchor="center")
-        self.objects_tree.column("direction", width=95, anchor="center")
-        self.objects_tree.column("disp", width=70, anchor="e")
-        self.objects_tree.column("velocity", width=85, anchor="e")
-        self.objects_tree.column("length", width=55, anchor="center")
+        self.objects_tree.column("id", width=45, anchor="center")
+        self.objects_tree.column("direction", width=120, anchor="center")
+        self.objects_tree.column("disp", width=80, anchor="e")
+        self.objects_tree.column("velocity", width=95, anchor="e")
+        self.objects_tree.column("length", width=60, anchor="center")
 
         tree_scroll = ttk.Scrollbar(table_group, orient=tk.VERTICAL, command=self.objects_tree.yview)
         self.objects_tree.configure(yscrollcommand=tree_scroll.set)
@@ -314,8 +361,10 @@ class CVMotionTrackApp:
         self.objects_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # 4. Tunable Hyperparameters Settings Panel
-        settings_group = ttk.LabelFrame(right_frame, text=" Real-Time Vision Settings ", padding=8)
+        # ------------------------------------------------------------------ #
+        # 4. TUNABLE VISION HYPERPARAMETERS PANEL                            #
+        # ------------------------------------------------------------------ #
+        settings_group = ttk.LabelFrame(right_frame, text=" 4. Real-Time Vision Settings ", padding=8)
         settings_group.pack(fill=tk.X)
 
         self.setting_vars = {
@@ -327,38 +376,41 @@ class CVMotionTrackApp:
         }
 
         settings_specs = [
-            ("Min Object Area (px²):", "min_area", 50.0, 3000.0, 50.0),
-            ("Tracker Match Dist (px):", "max_dist", 10.0, 150.0, 5.0),
-            ("Max Disappeared (frames):", "max_disp", 2, 40, 1),
-            ("Optical Flow Max Corners:", "flow_corners", 20, 250, 10),
-            ("Background Var Threshold:", "var_threshold", 4.0, 64.0, 2.0),
+            ("Min Object Area (px²):", "min_area", 50.0, 3000.0, "Filter out small noise blobs"),
+            ("Tracker Match Dist (px):", "max_dist", 10.0, 150.0, "Max distance to associate object"),
+            ("Max Disappeared (frames):", "max_disp", 2, 40, "Frames before removing lost track"),
+            ("Optical Flow Corners:", "flow_corners", 20, 250, "Max Shi-Tomasi feature points"),
+            ("MOG2 Var Threshold:", "var_threshold", 4.0, 64.0, "Background subtractor sensitivity"),
         ]
 
-        for row_idx, (label_txt, var_key, v_min, v_max, v_step) in enumerate(settings_specs):
-            ttk.Label(settings_group, text=label_txt, font=("Segoe UI", 8)).grid(row=row_idx, column=0, sticky="w", pady=2)
+        for row_idx, (label_txt, var_key, v_min, v_max, desc_txt) in enumerate(settings_specs):
+            row_frame = ttk.Frame(settings_group)
+            row_frame.pack(fill=tk.X, pady=2)
+
+            lbl_title = ttk.Label(row_frame, text=label_txt, font=("Segoe UI", 9, "bold"))
+            lbl_title.pack(side=tk.LEFT)
+
+            val_lbl = tk.Label(row_frame, bg=self.bg_card, fg=self.accent_cyan, font=("Consolas", 9, "bold"), width=6, anchor="e")
+            val_lbl.pack(side=tk.RIGHT)
+
             scale = ttk.Scale(
-                settings_group,
+                row_frame,
                 from_=v_min,
                 to=v_max,
                 variable=self.setting_vars[var_key],
                 orient=tk.HORIZONTAL,
                 command=lambda val, k=var_key: self._on_setting_changed(k, val),
             )
-            scale.grid(row=row_idx, column=1, sticky="ew", padx=6, pady=2)
-            val_lbl = ttk.Label(settings_group, width=6, font=("Consolas", 8))
-            val_lbl.grid(row=row_idx, column=2, sticky="w", pady=2)
+            scale.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=8)
 
             # Link live value label
             if isinstance(self.setting_vars[var_key], tk.IntVar):
                 val_lbl.configure(textvariable=self.setting_vars[var_key])
             else:
-                # Custom trace for float formatting
                 def _update_float_lbl(*args, lbl=val_lbl, k=var_key):
                     lbl.configure(text=f"{self.setting_vars[k].get():.0f}")
                 self.setting_vars[var_key].trace_add("write", _update_float_lbl)
                 val_lbl.configure(text=f"{self.setting_vars[var_key].get():.0f}")
-
-        settings_group.columnconfigure(1, weight=1)
 
     def _bind_shortcuts(self) -> None:
         """Bind application-wide keyboard shortcuts."""
@@ -415,7 +467,7 @@ class CVMotionTrackApp:
         self.current_source = 0
         self.source_type = "webcam"
         self.source_text.set("Source: Webcam (Device 0)")
-        self.status_text.set("Status: Webcam selected. Click 'Start Processing'.")
+        self.status_text.set("Status: Webcam selected. Click '▶ START PROCESSING'.")
 
     def open_video_dialog(self) -> None:
         """Open file dialog for video selection."""
@@ -443,290 +495,258 @@ class CVMotionTrackApp:
             self.source_type = "file"
             base_name = os.path.basename(chosen_path)
             self.source_text.set(f"Source: {base_name}")
-            self.status_text.set(f"Status: Loaded '{base_name}'. Click 'Start Processing'.")
+            self.status_text.set(f"Status: Loaded '{base_name}'. Click '▶ START PROCESSING'.")
 
     def start_processing(self) -> None:
         """Initialize pipeline subsystems and launch background processing thread."""
         if self.is_processing:
             return
 
-        # Prepare VideoProcessor
-        self.config.video.source = self.current_source
-        self.video_processor = VideoProcessor(config=self.config.video)
-
         try:
-            if not self.video_processor.open():
-                messagebox.showerror(
-                    "Video Source Error",
-                    f"Unable to open video source: {self.current_source}\n"
-                    "If using a webcam, ensure it is plugged in and not in use by another app.",
-                )
-                self.status_text.set("Status: Error opening video source.")
-                return
-        except FileNotFoundError as fnf_err:
-            messagebox.showerror("File Not Found", str(fnf_err))
-            self.status_text.set("Status: Video file not found.")
-            return
+            self.video_processor = VideoProcessor(source=self.current_source, config=self.config.video)
         except Exception as e:
-            messagebox.showerror("Initialization Error", f"Unexpected error opening source: {e}")
+            messagebox.showerror("Stream Error", f"Failed to open video source:\n{e}")
+            self.status_text.set("Status: Error opening video source.")
             return
 
-        # Synchronize FPS with MotionAnalyzer
-        stream_fps = self.video_processor.fps
-        self.motion_analyzer.config.fps = stream_fps
-
-        # Update button states
+        self.stop_event.clear()
         self.is_processing = True
         self.is_paused = False
-        self.stop_event.clear()
 
+        # Update Button States & Badge
         self.btn_start.configure(state=tk.DISABLED)
         self.btn_stop.configure(state=tk.NORMAL)
         self.btn_pause.configure(state=tk.NORMAL)
         self.btn_resume.configure(state=tk.DISABLED)
-        self.status_text.set("Status: Processing active...")
 
-        # Spawn background processing worker
-        self.worker_thread = threading.Thread(target=self._processing_worker, daemon=True)
+        self.status_badge_var.set("● PROCESSING")
+        self.status_badge_lbl.configure(fg="#10b981")
+        self.status_text.set("Status: Processing pipeline active...")
+
+        # Launch Worker Thread
+        self.worker_thread = threading.Thread(target=self._pipeline_worker, daemon=True)
         self.worker_thread.start()
 
+    def stop_processing(self) -> None:
+        """Signal worker thread to terminate and release resources."""
+        if not self.is_processing:
+            return
+
+        self.stop_event.set()
+        self.is_processing = False
+        self.is_paused = False
+
+        if self.worker_thread and self.worker_thread.is_alive():
+            self.worker_thread.join(timeout=1.0)
+
+        if self.video_processor:
+            self.video_processor.release()
+            self.video_processor = None
+
+        # Reset Controls & Badge
+        self.btn_start.configure(state=tk.NORMAL)
+        self.btn_stop.configure(state=tk.DISABLED)
+        self.btn_pause.configure(state=tk.DISABLED)
+        self.btn_resume.configure(state=tk.DISABLED)
+
+        self.status_badge_var.set("⏹ STOPPED")
+        self.status_badge_lbl.configure(fg="#f43f5e")
+        self.status_text.set("Status: Pipeline stopped.")
+
     def pause_processing(self) -> None:
-        """Pause video processing loop."""
-        if self.is_processing and not self.is_paused:
-            self.is_paused = True
-            self.btn_pause.configure(state=tk.DISABLED)
-            self.btn_resume.configure(state=tk.NORMAL)
-            self.status_text.set("Status: Processing PAUSED. Press 'Resume' (or P).")
+        """Pause frame ingestion while preserving tracking states."""
+        if not self.is_processing or self.is_paused:
+            return
+        self.is_paused = True
+        self.btn_pause.configure(state=tk.DISABLED)
+        self.btn_resume.configure(state=tk.NORMAL)
+
+        self.status_badge_var.set("⏸ PAUSED")
+        self.status_badge_lbl.configure(fg="#fbbf24")
+        self.status_text.set("Status: Processing PAUSED. Click 'Resume' or press 'P'.")
 
     def resume_processing(self) -> None:
-        """Resume video processing loop."""
-        if self.is_processing and self.is_paused:
-            self.is_paused = False
-            self.btn_pause.configure(state=tk.NORMAL)
-            self.btn_resume.configure(state=tk.DISABLED)
-            self.status_text.set("Status: Processing resumed.")
+        """Resume active frame ingestion."""
+        if not self.is_processing or not self.is_paused:
+            return
+        self.is_paused = False
+        self.btn_pause.configure(state=tk.NORMAL)
+        self.btn_resume.configure(state=tk.DISABLED)
+
+        self.status_badge_var.set("● PROCESSING")
+        self.status_badge_lbl.configure(fg="#10b981")
+        self.status_text.set("Status: Processing resumed.")
 
     def toggle_pause(self) -> None:
-        """Toggle pause/resume state."""
+        """Toggle pause state via shortcut."""
         if self.is_paused:
             self.resume_processing()
         else:
             self.pause_processing()
 
-    def stop_processing(self) -> None:
-        """Safely terminate processing thread and release video hardware."""
-        if not self.is_processing:
-            return
-
-        self.status_text.set("Status: Stopping pipeline...")
-        self.stop_event.set()
-
-        if self.worker_thread is not None and self.worker_thread.is_alive():
-            self.worker_thread.join(timeout=1.0)
-            self.worker_thread = None
-
-        if self.video_processor is not None:
-            self.video_processor.release()
-            self.video_processor = None
-
-        self.is_processing = False
-        self.is_paused = False
-
-        self.btn_start.configure(state=tk.NORMAL)
-        self.btn_stop.configure(state=tk.DISABLED)
-        self.btn_pause.configure(state=tk.DISABLED)
-        self.btn_resume.configure(state=tk.DISABLED)
-        self.status_text.set("Status: Processing stopped.")
-
     def reset_pipeline(self) -> None:
-        """
-        Clear algorithmic state across tracker, motion analyzer, and optical flow.
-
-        Keeps loaded video/webcam source active so user can re-process.
-        """
+        """Reset internal states of tracker, motion analyzer, and optical flow."""
         self.tracker.reset()
         self.motion_analyzer.reset()
         self.optical_flow.reset()
         self.evaluator.reset()
 
-        # Clear telemetry displays
-        for v in self.stat_vars.values():
-            v.set("0")
+        # Clear UI table and stats
+        for item in self.objects_tree.get_children():
+            self.objects_tree.delete(item)
+
         self.stat_vars["fps"].set("0.0 FPS")
+        self.stat_vars["frame"].set("0")
+        self.stat_vars["detections"].set("0")
+        self.stat_vars["tracks"].set("0")
+        self.stat_vars["flow_points"].set("0")
         self.stat_moving_stat_var.set("0 / 0")
 
-        # Clear Treeview
-        for row in self.objects_tree.get_children():
-            self.objects_tree.delete(row)
-
-        self.status_text.set("Status: Pipeline state reset (Trackers & Kinematics cleared).")
-
-    # ---------------------------------------------------------------------- #
-    # Frame Capture & Export                                                 #
-    # ---------------------------------------------------------------------- #
+        self.status_text.set("Status: Pipeline state reset by user.")
 
     def save_current_frame(self) -> Optional[str]:
-        """
-        Save currently displayed annotated video frame to results/screenshots/.
-
-        Filename format: motiontrack_YYYY_MM_DD_HHMMSS.png
-
-        Returns:
-            Optional[str]: Saved file path if successful, None otherwise.
-        """
+        """Save the latest annotated frame to results/screenshots/."""
         if self.latest_annotated_frame is None:
-            # No active frame available; update status bar silently
-            # (avoid blocking messagebox so callers/tests are not hung)
-            try:
-                self.status_text.set("Status: No active frame to save.")
-            except Exception:
-                pass
+            messagebox.showinfo("Save Screenshot", "No active frame available to save.")
             return None
 
-        out_dir = os.path.join("results", "screenshots")
+        out_dir = os.path.abspath(os.path.join("results", "screenshots"))
         os.makedirs(out_dir, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y_%m_%d_%H%M%S")
         filename = f"motiontrack_{timestamp}.png"
         filepath = os.path.join(out_dir, filename)
 
-        try:
-            cv2.imwrite(filepath, self.latest_annotated_frame)
-            self.status_text.set(f"Status: Screenshot saved to {filename}")
-            return filepath
-        except Exception as e:
-            messagebox.showerror("Export Error", f"Failed to save image: {e}")
-            return None
+        cv2.imwrite(filepath, self.latest_annotated_frame)
+        self.status_text.set(f"Status: Screenshot saved to 'results/screenshots/{filename}'.")
+        return filepath
 
     # ---------------------------------------------------------------------- #
-    # Threading & Processing Worker                                          #
+    # Worker Thread Processing Loop                                          #
     # ---------------------------------------------------------------------- #
 
-    def _processing_worker(self) -> None:
-        """
-        Worker thread executing the 8-stage Computer Vision pipeline sequentially.
-
-        Places composite annotated frames and metrics into self.frame_queue.
-        """
+    def _pipeline_worker(self) -> None:
+        """Isolated background worker thread running the CV pipeline."""
         frame_idx = 0
-        fps_estimate = 0.0
+        fps_smoothing_window = 10
+        recent_latencies: List[float] = []
 
-        try:
-            while not self.stop_event.is_set():
-                if self.is_paused:
-                    time.sleep(0.03)
-                    continue
+        while not self.stop_event.is_set():
+            if self.is_paused:
+                time.sleep(0.05)
+                continue
 
-                t0 = time.perf_counter()
+            t_start = time.perf_counter()
 
-                # Step 1: Read frame
-                if self.video_processor is None or not self.video_processor.is_opened():
-                    break
+            if self.video_processor is None:
+                break
 
-                ret, frame = self.video_processor.read_frame()
-                if not ret or frame is None:
-                    # End of stream reached
-                    break
+            ret, frame = self.video_processor.read_frame()
+            if not ret or frame is None:
+                # End of stream reached
+                self.root.after(0, lambda: self.status_text.set("Status: End of video stream reached."))
+                self.root.after(0, self.stop_processing)
+                break
 
-                frame_idx += 1
+            frame_idx += 1
 
-                # Step 2: Preprocess
-                gray_frame = self.preprocessor.process(frame)
+            # 1. Preprocessing
+            prep_frame = self.preprocessor.process(frame)
 
-                # Step 3, 4, 5: Detect
-                detections, fg_mask = self.detector.detect(gray_frame)
+            # 2. Object Detection
+            detections, fg_mask = self.detector.detect(prep_frame)
 
-                # Step 6: Track
-                tracked_objects = self.tracker.update(detections)
+            # 3. Object Tracking
+            tracked_objects = self.tracker.update(detections)
 
-                # Step 7: Optical Flow
-                flow_points = self.optical_flow.update(gray_frame)
+            # 4. Optical Flow
+            optical_flow_points = self.optical_flow.update(prep_frame)
 
-                # Step 8: Motion Analysis
-                motion_data = self.motion_analyzer.update(tracked_objects, flow_points)
+            # 5. Motion Analysis
+            motion_data = self.motion_analyzer.update(
+                tracked_objects=tracked_objects,
+                optical_flow_points=optical_flow_points,
+            )
 
-                # Throughput measurement
-                elapsed = max(1e-6, time.perf_counter() - t0)
-                fps_val = 1.0 / elapsed
-                fps_estimate = 0.9 * fps_estimate + 0.1 * fps_val if fps_estimate > 0 else fps_val
+            # Record metrics
+            self.evaluator.record_frame(
+                detections=detections,
+                tracked_objects=tracked_objects,
+                optical_flow_points=optical_flow_points,
+                motion_data=motion_data,
+            )
 
-                # Step 9: Render annotations
-                stats = self.motion_analyzer.get_summary_statistics()
-                annotated = self.visualizer.render(
-                    frame=frame,
-                    detections=detections,
-                    tracked_objects=tracked_objects,
-                    motion_data=motion_data,
-                    optical_flow_points=flow_points,
-                    active_count=len(tracked_objects),
-                    fps=fps_estimate,
-                    stats=stats,
-                )
+            # Calculate instantaneous smoothed FPS
+            t_elapsed = time.perf_counter() - t_start
+            recent_latencies.append(t_elapsed)
+            if len(recent_latencies) > fps_smoothing_window:
+                recent_latencies.pop(0)
+            avg_latency = float(np.mean(recent_latencies)) if recent_latencies else 0.033
+            current_fps = 1.0 / max(0.0001, avg_latency)
 
-                # Cache latest frame for screenshot exporter
-                self.latest_annotated_frame = annotated
+            # 6. Visualization Overlay
+            stats = self.motion_analyzer.get_summary_statistics()
+            annotated_frame = self.visualizer.render(
+                frame=frame,
+                detections=detections,
+                tracked_objects=tracked_objects,
+                motion_data=motion_data,
+                optical_flow_points=optical_flow_points,
+                active_count=len(tracked_objects),
+                fps=current_fps,
+                stats=stats,
+            )
 
-                # Extract object rows for the GUI Treeview
-                object_rows = []
-                for track in tracked_objects:
-                    oid = track.object_id
-                    m = motion_data.get(oid)
-                    direction = m.direction if m else "STATIONARY"
-                    disp = f"{m.displacement:.1f}" if m else "0.0"
-                    vel = f"{m.approximate_velocity:.1f}" if (m and m.approximate_velocity > 0) else (f"{m.velocity:.1f}" if m else "0.0")
-                    trail_len = len(track.trajectory) if track.trajectory else 1
-                    object_rows.append((oid, direction, disp, vel, trail_len))
+            self.latest_annotated_frame = annotated_frame.copy()
 
-                # Queue frame for main GUI thread (drop old frame if queue full)
-                payload = {
-                    "annotated_frame": annotated,
-                    "frame_idx": frame_idx,
-                    "fps": fps_estimate,
-                    "detections_count": len(detections),
-                    "tracks_count": len(tracked_objects),
-                    "flow_count": len(flow_points),
-                    "moving_count": stats.get("moving_objects", 0),
-                    "stationary_count": stats.get("stationary_objects", 0),
-                    "object_rows": object_rows,
-                }
+            # Format Object Kinematics table rows
+            object_rows = []
+            for track in tracked_objects:
+                m_info = motion_data.get(track.object_id)
+                direction_str = m_info.direction.value if m_info else "STATIONARY"
+                disp_val = f"{m_info.displacement:.1f}" if m_info else "0.0"
+                vel_val = f"{m_info.velocity_sec:.1f}" if m_info else "0.0"
+                trail_len = len(track.trajectory)
+                object_rows.append((track.object_id, direction_str, disp_val, vel_val, trail_len))
 
-                if self.frame_queue.full():
-                    try:
-                        self.frame_queue.get_nowait()
-                    except queue.Empty:
-                        pass
-                self.frame_queue.put(payload)
+            payload = {
+                "annotated_frame": annotated_frame,
+                "frame_idx": frame_idx,
+                "fps": current_fps,
+                "detections_count": len(detections),
+                "tracks_count": len(tracked_objects),
+                "flow_count": len(optical_flow_points),
+                "moving_count": stats.get("moving_count", 0),
+                "stationary_count": stats.get("stationary_count", 0),
+                "object_rows": object_rows,
+            }
 
-        except Exception as e:
-            print(f"[ERROR in CV Worker Thread] {e}", file=sys.stderr)
-        finally:
-            # Notify main thread that stream finished
-            self.root.after(0, self._on_worker_finished)
+            # Offer payload to UI main-thread polling queue (drop stale frame if full)
+            try:
+                self.frame_queue.put_nowait(payload)
+            except queue.Full:
+                try:
+                    self.frame_queue.get_nowait()
+                    self.frame_queue.put_nowait(payload)
+                except queue.Empty:
+                    pass
 
-    def _on_worker_finished(self) -> None:
-        """Handle end-of-stream cleanup on the main Tkinter thread."""
-        if self.is_processing:
-            self.is_processing = False
-            self.btn_start.configure(state=tk.NORMAL)
-            self.btn_stop.configure(state=tk.DISABLED)
-            self.btn_pause.configure(state=tk.DISABLED)
-            self.btn_resume.configure(state=tk.DISABLED)
-            self.status_text.set("Status: Video playback completed or source ended.")
+            # Target ~30 FPS UI display update rate
+            time.sleep(0.005)
 
     # ---------------------------------------------------------------------- #
-    # GUI Polling and Display                                                #
+    # Main-Thread UI Queue Consumer                                         #
     # ---------------------------------------------------------------------- #
 
     def _poll_queue(self) -> None:
         """Periodic main-thread polling loop to consume frames and update widgets."""
         try:
             payload = None
-            # Get latest available frame from queue
             while not self.frame_queue.empty():
                 payload = self.frame_queue.get_nowait()
 
             if payload is not None:
-                # Update Video Canvas with aspect-ratio scaling
+                # Update Video Canvas
                 bgr_frame = payload["annotated_frame"]
                 self._display_frame(bgr_frame)
 
@@ -738,17 +758,17 @@ class CVMotionTrackApp:
                 self.stat_vars["flow_points"].set(str(payload["flow_count"]))
                 self.stat_moving_stat_var.set(f"{payload['moving_count']} / {payload['stationary_count']}")
 
-                # Update Object Kinematics Treeview
+                # Update Object Kinematics Table
                 self._update_treeview(payload["object_rows"])
 
         except Exception as e:
             print(f"[DEBUG GUI Poll Error] {e}", file=sys.stderr)
 
         # Re-arm polling loop
-        self.root.after(25, self._poll_queue)
+        self.root.after(20, self._poll_queue)
 
     def _display_frame(self, bgr_image: np.ndarray) -> None:
-        """Resize frame maintaining aspect ratio and blit onto video_label."""
+        """Resize frame maintaining aspect ratio and render onto video canvas."""
         canvas_w = max(100, self.video_container.winfo_width())
         canvas_h = max(100, self.video_container.winfo_height())
 
@@ -769,7 +789,6 @@ class CVMotionTrackApp:
 
     def _update_treeview(self, object_rows: List[Tuple]) -> None:
         """Populate the Tracked Objects table with fresh kinematic records."""
-        # Simple differential update: clear and re-insert active tracks
         existing_items = self.objects_tree.get_children()
         for item in existing_items:
             self.objects_tree.delete(item)
