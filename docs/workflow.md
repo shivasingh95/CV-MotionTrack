@@ -1,117 +1,135 @@
-# Processing Workflow: CV-MotionTrack
+﻿# Runtime Workflow — CV-MotionTrack
 
-## 1. Frame-Level Execution Sequence
+**Academic Coursework: CSE3010 Computer Vision**
 
-Every video frame ingested by CV-MotionTrack passes through a deterministic sequence of processing stages orchestrated by `main.py`.
+This document describes the complete runtime workflow of the CV-MotionTrack system,
+from application launch to shutdown. The workflow covers both the nominal processing
+path and all user interaction branches.
+
+---
+
+## Complete Runtime Flowchart
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant Main as main.py
-    participant VP as VideoProcessor
-    participant PP as Preprocessor
-    participant Det as ObjectDetector
-    participant Trk as ObjectTracker
-    participant OF as OpticalFlowAnalyzer
-    participant MA as MotionAnalyzer
-    participant Vis as Visualizer
+flowchart TD
+    START(["▶ Start Application\npython main.py"])
+    INIT["Initialize Application\n• Load AppConfig\n• Construct CV modules\n• Build Tkinter GUI\n• Start _poll_queue loop"]
+    SELECT["Select Video Source\n• Webcam (Device 0)\n• or Open Video File"]
+    START_BTN["Click 'Start Processing'\n• Open VideoProcessor\n• Launch background worker thread"]
+    READ["Read Frame\nVideoProcessor.read_frame()"]
+    VALIDATE{"Frame\nvalid?"}
+    STOP_STREAM(["Stream ended / error\n→ Stop Processing"])
+    PRE["Preprocess Frame\n• cvtColor BGR→Gray\n• GaussianBlur(5×5)"]
+    BG["Apply Background Subtraction\n• MOG2/KNN model update\n• Foreground mask extraction"]
+    MORPH["Clean Foreground Mask\n• Threshold shadow pixels (127)\n• Morphological Opening (noise removal)\n• Morphological Closing (gap fill)"]
+    DETECT["Detect Moving Objects\n• findContours on clean mask\n• Filter by area (min/max)\n• Extract BoundingBox + centroid\n→ List[Detection]"]
+    TRACK["Track Objects\n• Compute pairwise Euclidean distances\n• Greedy nearest-centroid matching\n• Assign/maintain object IDs\n• Update trajectories\n→ List[TrackedObject]"]
+    FLOW["Optical Flow / KLT\n• Shi-Tomasi feature detection\n• Pyramidal Lucas-Kanade tracking\n• Filter by status mask\n→ List[OpticalFlowPoint]"]
+    MOTION["Calculate Motion Parameters\n• dx, dy displacement\n• Euclidean distance d = √(dx²+dy²)\n• Direction (8 sectors)\n• Angle θ = atan2(dy, dx)\n• Velocity v = d / Δt (px/frame, px/s)\n• Path length, net displacement\n→ Dict[int, MotionData]"]
+    VIS["Generate Visualization\n• Bounding boxes\n• Object IDs\n• Trajectory trails\n• Optical flow vectors\n• Motion info badges\n• HUD telemetry panel\n→ annotated BGR frame"]
+    DISPLAY["Display Frame + Statistics\n• GUI canvas update\n• Telemetry labels (FPS, counts)\n• Kinematics table (ID, direction, velocity)"]
+    MORE{"More\nFrames?"}
+    SAVE_R["Save Results\n• Export metrics CSV/JSON\n• Terminal summary"]
+    END(["■ End"])
 
-    loop Frame Processing Loop
-        Main->>VP: read_frame()
-        VP-->>Main: ret, frame_bgr
-        alt Stream Finished / Error
-            Main->>Main: Break loop & trigger cleanup
-        end
-
-        Main->>PP: preprocess(frame_bgr)
-        PP-->>Main: preprocessed_gray
-
-        Main->>Det: detect(preprocessed_gray)
-        Det-->>Main: detections, fg_mask
-
-        Main->>Trk: update(detections)
-        Trk-->>Main: tracked_objects
-
-        Main->>OF: update(preprocessed_gray)
-        OF-->>Main: good_old, good_new
-
-        Main->>MA: update(tracked_objects)
-        MA-->>Main: motion_data_dict
-
-        Main->>MA: get_summary_statistics()
-        MA-->>Main: summary_stats
-
-        Main->>Vis: render(frame_bgr, detections, tracked_objects, motion_data, stats)
-        Vis-->>Main: annotated_frame
-
-        Main->>Main: Display via cv2.imshow / write to output video
-    end
+    START --> INIT --> SELECT --> START_BTN --> READ
+    READ --> VALIDATE
+    VALIDATE -- "No" --> STOP_STREAM --> SAVE_R --> END
+    VALIDATE -- "Yes" --> PRE --> BG --> MORPH --> DETECT --> TRACK --> FLOW --> MOTION --> VIS --> DISPLAY --> MORE
+    MORE -- "Yes" --> READ
+    MORE -- "No" --> SAVE_R --> END
 ```
 
 ---
 
-## 2. Detailed Step-by-Step Processing
+## User Interaction Branches
 
-### Step 1: Ingestion & Validation
-- The `VideoProcessor` retrieves the current frame from the hardware device or file pointer via OpenCV `read()`.
-- Validates that the frame buffer is non-empty and uncorrupted.
-- If resizing is enforced in `VideoConfig`, resizes the frame to `(target_width, target_height)`.
-
-### Step 2: Spatial Preprocessing
-- Converts 3-channel color image (BGR) into a 1-channel luminance image (Grayscale):
-  $$I_{\text{gray}} = 0.299 R + 0.587 G + 0.114 B$$
-- Convolves the grayscale image with an isotropic 2D Gaussian kernel of dimensions $(k_w, k_h)$ to attenuate high-frequency sensor noise and camera jitter.
-
-### Step 3: Background Subtraction & Foreground Modeling
-- The preprocessed frame is fed into the adaptive background model (MOG2).
-- The subtractor updates its internal Gaussian mixture distribution per pixel and generates a ternary mask (0 = Background, 127 = Shadow, 255 = Moving Foreground).
-- Thresholding suppresses shadow regions to zero.
-
-### Step 4: Morphological Cleanup & Detection
-- **Opening**: Erosion followed by dilation removes isolated false-positive noise pixels.
-- **Closing**: Dilation followed by erosion bridges disconnected contours within the same physical entity.
-- External contour boundaries are extracted via border-following.
-- Contours falling outside $[A_{\min}, A_{\max}]$ are pruned.
-- Centroids $(\bar{x}, \bar{y})$ are computed via spatial image moments:
-  $$\bar{x} = \frac{M_{10}}{M_{00}}, \quad \bar{y} = \frac{M_{01}}{M_{00}}$$
-- Candidate bounding boxes and centroids are packaged as `Detection` instances.
-
-### Step 5: Object Tracking & Identity Association
-The `ObjectTracker` updates the state machine of all observed entities:
+User actions can interrupt the processing loop at any point during active operation.
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Unobserved
-    Unobserved --> Registered: New detection found (Assign new ID)
-    Registered --> Tracked: Matched across frames (Distance <= Threshold)
-    Tracked --> Tracked: Position & trajectory updated
-    Tracked --> Missing: Unmatched in frame (disappeared_count += 1)
-    Missing --> Tracked: Re-matched within tolerance (disappeared_count = 0)
-    Missing --> Deregistered: disappeared_count > max_disappeared
-    Deregistered --> [*]
+flowchart TD
+    PROC(["Processing Loop\n(active)"])
+
+    PAUSE["User: Press P or Click Pause\n• is_paused = True\n• Worker thread: sleep(30ms) loop\n• GUI: status bar shows PAUSED"]
+    RESUME["User: Press P or Click Resume\n• is_paused = False\n• Worker thread: resumes CV pipeline\n• GUI: status bar shows Running"]
+    RESET["User: Press R or Click Reset\n• ObjectTracker.reset()\n• OpticalFlowAnalyzer.reset()\n• MotionAnalyzer.reset()\n• Evaluator.reset()\n• Clears telemetry + table"]
+    SAVE["User: Press S or Click Save Frame\n• latest_annotated_frame saved as PNG\n• results/screenshots/motiontrack_YYYY_MM_DD_HHMMSS.png"]
+    STOP["User: Press Q/ESC or Click Stop\n• stop_event.set()\n• Worker thread exits\n• VideoProcessor.release()\n• Buttons reset to idle state"]
+
+    PROC --> PAUSE --> RESUME --> PROC
+    PROC --> RESET --> PROC
+    PROC --> SAVE
+    PROC --> STOP
 ```
 
-1. Pairwise Euclidean distances between current track positions and new detections are computed.
-2. Tracks are greedily matched to detections below `max_distance_threshold`.
-3. Matched tracks update their current position, append to trajectory history, and reset `disappeared_count = 0`.
-4. Unmatched existing tracks increment `disappeared_count`. If this exceeds `max_disappeared`, the track is purged.
-5. Unmatched detections are registered as new entities with monotonically increasing object IDs.
+---
 
-### Step 6: Optical Flow Field Estimation
-- Features (corners) are extracted using the Shi-Tomasi criterion in the previous frame.
-- Iterative Lucas-Kanade optical flow calculates displacement vectors to the current frame.
-- High-error or out-of-boundary feature tracks are culled via the tracking status vector.
+## Per-Frame Processing Detail
 
-### Step 7: Motion Kinematics Analysis
-For each active `TrackedObject`:
-- **Displacement**: $\Delta d = \sqrt{(x_t - x_{t-1})^2 + (y_t - y_{t-1})^2}$
-- **Direction**: $\theta = \text{atan2}(y_t - y_{t-1}, x_t - x_{t-1}) \times \frac{180}{\pi} \pmod{360}$
-- **Velocity**: $v = \frac{\Delta d}{\Delta t} = \Delta d \times \text{FPS}$ (pixels/second)
-- Motion data is recorded into the entity's lifetime movement history.
+Each iteration of the background worker thread processes exactly one frame through the
+complete 8-stage pipeline:
 
-### Step 8: Visualization & Display
-- Bounding boxes are drawn with configured line colors and thicknesses.
-- Trajectory lines are drawn connecting historical centroid coordinates.
-- Directional velocity arrows indicate orientation and speed.
-- A semi-transparent diagnostic telemetry dashboard is overlaid at the top of the frame.
-- The annotated frame is presented in an interactive OpenCV HighGUI window (or written to an output stream in headless mode).
+| Stage | Module | Input | Output |
+|---|---|---|---|
+| 1. Acquire | `VideoProcessor` | Video stream | BGR frame `(H×W×3)` |
+| 2. Preprocess | `Preprocessor` | BGR frame | Grayscale frame `(H×W)` |
+| 3. Background model | `ObjectDetector` | Grayscale frame | Foreground mask |
+| 4. Clean mask | `ObjectDetector` | Foreground mask | Binary clean mask |
+| 5. Detect | `ObjectDetector` | Clean mask | `List[Detection]` |
+| 6. Track | `ObjectTracker` | `List[Detection]` | `List[TrackedObject]` |
+| 7. Optical flow | `OpticalFlowAnalyzer` | Grayscale frame | `List[OpticalFlowPoint]` |
+| 8. Motion analysis | `MotionAnalyzer` | TrackedObjects + FlowPoints | `Dict[MotionData]` |
+| 9. Visualize | `Visualizer` | All above | Annotated BGR frame |
+
+After stage 9, the annotated frame and metric payload are placed onto the thread-safe
+`frame_queue`. The Tkinter main thread polls the queue every 25 ms, dequeues the latest
+payload, updates the video canvas, and refreshes all telemetry widgets.
+
+---
+
+## Initialization Sequence
+
+```mermaid
+sequenceDiagram
+    participant CLI as main.py
+    participant CFG as AppConfig
+    participant UI as CVMotionTrackApp
+    participant TK as Tkinter Root
+
+    CLI->>CFG: AppConfig() — load defaults
+    CLI->>TK: tk.Tk() — create root window
+    CLI->>UI: CVMotionTrackApp(root, config)
+    UI->>UI: _setup_styles() — dark theme
+    UI->>UI: _build_layout() — panels + canvas
+    UI->>UI: _setup_cv_modules() — instantiate all 8 modules
+    UI->>UI: _setup_controls() — buttons + sliders
+    UI->>UI: _bind_keyboard_shortcuts()
+    UI->>UI: root.after(25, _poll_queue) — start polling
+    CLI->>TK: root.mainloop() — enter event loop
+```
+
+---
+
+## Headless / CLI Mode
+
+In addition to the GUI mode, `main.py` supports a `--headless` flag for non-interactive
+automated evaluation:
+
+```
+python main.py --headless --source <video_path> [--output <output_path>]
+```
+
+In headless mode the Tkinter GUI is **not** created. The processing loop runs directly
+on the calling thread, writing evaluation metrics to `results/metrics/` and optionally
+saving an annotated output video.
+
+---
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| `P` | Pause / Resume processing |
+| `R` | Reset pipeline |
+| `S` | Save current annotated frame |
+| `Q` or `ESC` | Stop processing and exit |
