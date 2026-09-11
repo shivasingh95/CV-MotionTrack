@@ -6,7 +6,8 @@ the computer vision pipeline.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+import math
+from typing import List, Optional, Tuple, Union
 
 
 @dataclass
@@ -87,15 +88,27 @@ class MotionData:
 
     Attributes:
         object_id: Identifier of the tracked object.
-        displacement: Magnitude of positional shift between consecutive frames in pixels.
-        direction: Angle of displacement in degrees (0 to 360, relative to horizontal axis).
-        approximate_velocity: Estimated velocity in pixels per second.
-        instantaneous_speed: Speed in pixels per frame.
+        dx: Horizontal positional shift in pixels (x_current - x_previous).
+        dy: Vertical positional shift in pixels (y_current - y_previous).
+        displacement: Euclidean distance moved in current frame (pixels).
+        direction: Qualitative image-space direction ('RIGHT', 'UP-LEFT', 'STATIONARY', etc.).
+        angle: Heading angle in degrees [0, 360) relative to positive horizontal axis.
+        velocity: Image-space velocity in pixels/frame.
+        path_length: Cumulative trajectory path length in pixels.
+        net_displacement: Direct straight-line distance from trajectory start to end.
+        approximate_velocity: Velocity in pixels per second (derived from FPS).
+        instantaneous_speed: Instantaneous frame-to-frame displacement in pixels.
     """
     object_id: int
-    displacement: float
-    direction: float
-    approximate_velocity: float
+    dx: float = 0.0
+    dy: float = 0.0
+    displacement: float = 0.0
+    direction: Union[str, float] = "STATIONARY"
+    angle: float = 0.0
+    velocity: float = 0.0
+    path_length: float = 0.0
+    net_displacement: float = 0.0
+    approximate_velocity: float = 0.0
     instantaneous_speed: float = 0.0
 
 
@@ -112,3 +125,48 @@ class FrameMetadata:
     frame_index: int
     timestamp: float
     dimensions: Tuple[int, int, int]
+
+
+@dataclass
+class OpticalFlowPoint:
+    """
+    Represents an individual sparse feature point tracked across consecutive video frames
+    using Lucas-Kanade optical flow.
+
+    Attributes:
+        previous_x: X-coordinate in previous frame (x_previous).
+        previous_y: Y-coordinate in previous frame (y_previous).
+        current_x: X-coordinate in current frame (x_current).
+        current_y: Y-coordinate in current frame (y_current).
+        dx: Apparent motion displacement vector along X axis (x_current - x_previous).
+        dy: Apparent motion displacement vector along Y axis (y_current - y_previous).
+    """
+    previous_x: float
+    previous_y: float
+    current_x: float
+    current_y: float
+    dx: float
+    dy: float
+
+    @property
+    def previous_point(self) -> Tuple[float, float]:
+        """Return previous position as (x, y) tuple."""
+        return (self.previous_x, self.previous_y)
+
+    @property
+    def current_point(self) -> Tuple[float, float]:
+        """Return current position as (x, y) tuple."""
+        return (self.current_x, self.current_y)
+
+    @property
+    def vector(self) -> Tuple[float, float]:
+        """Return apparent motion displacement vector as (dx, dy) tuple."""
+        return (self.dx, self.dy)
+
+    @property
+    def magnitude(self) -> float:
+        """
+        Calculate Euclidean motion vector magnitude:
+        magnitude = sqrt(dx^2 + dy^2).
+        """
+        return math.hypot(self.dx, self.dy)

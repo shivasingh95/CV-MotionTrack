@@ -130,6 +130,36 @@ class VideoProcessor:
             "total_frames": total_frames,
         }
 
+    @property
+    def width(self) -> int:
+        """Frame width in pixels (or 0 if not opened)."""
+        if not self.is_opened():
+            return 0
+        return int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+    @property
+    def height(self) -> int:
+        """Frame height in pixels (or 0 if not opened)."""
+        if not self.is_opened():
+            return 0
+        return int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    @property
+    def fps(self) -> float:
+        """
+        Stream acquisition rate in frames per second (FPS).
+
+        Academic Limitation Note:
+            If capturing from an uncalibrated webcam where cv2.CAP_PROP_FPS is 0.0 or
+            unavailable, a safe fallback (config.fps_limit) is returned for timing and
+            display purposes. This fallback is purely for image-space timing and must
+            NOT be confused with calibrated physical-world speed.
+        """
+        if not self.is_opened():
+            return 0.0
+        reported_fps = self.capture.get(cv2.CAP_PROP_FPS)
+        return reported_fps if reported_fps > 0 else self.config.fps_limit
+
     def release(self) -> None:
         """Release video capture resources."""
         if self.capture is not None:
