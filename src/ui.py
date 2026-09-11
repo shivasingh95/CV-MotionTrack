@@ -769,8 +769,11 @@ class CVMotionTrackApp:
 
     def _display_frame(self, bgr_image: np.ndarray) -> None:
         """Resize frame maintaining aspect ratio and render onto video canvas."""
-        canvas_w = max(100, self.video_container.winfo_width())
-        canvas_h = max(100, self.video_container.winfo_height())
+        canvas_w = self.video_container.winfo_width()
+        canvas_h = self.video_container.winfo_height()
+
+        if canvas_w <= 10 or canvas_h <= 10:
+            canvas_w, canvas_h = 800, 540
 
         img_h, img_w = bgr_image.shape[:2]
         if img_h == 0 or img_w == 0:
@@ -785,7 +788,8 @@ class CVMotionTrackApp:
         pil_img = Image.fromarray(rgb_img)
 
         self.photo_image = ImageTk.PhotoImage(image=pil_img)
-        self.video_label.configure(image=self.photo_image, text="")
+        self.video_label.configure(image=self.photo_image, text="", compound="none")
+        self.video_label.image = self.photo_image
 
     def _update_treeview(self, object_rows: List[Tuple]) -> None:
         """Populate the Tracked Objects table with fresh kinematic records."""
