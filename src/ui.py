@@ -643,10 +643,15 @@ class CVMotionTrackApp:
 
             ret, frame = self.video_processor.read_frame()
             if not ret or frame is None:
-                # End of stream reached
-                self.root.after(0, lambda: self.status_text.set("Status: End of video stream reached."))
-                self.root.after(0, self.stop_processing)
-                break
+                # If source is a video file, loop back to start automatically
+                if self.source_type == "file" and self.video_processor and self.video_processor.capture:
+                    self.video_processor.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    ret, frame = self.video_processor.read_frame()
+
+                if not ret or frame is None:
+                    self.root.after(0, lambda: self.status_text.set("Status: End of video stream reached."))
+                    self.root.after(0, self.stop_processing)
+                    break
 
             frame_idx += 1
 

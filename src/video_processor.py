@@ -52,9 +52,13 @@ class VideoProcessor:
             FileNotFoundError: If the specified video file path does not exist.
         """
         if isinstance(self.source, str):
-            if not os.path.exists(self.source):
-                raise FileNotFoundError(f"Video file not found at path: {self.source}")
-            self.capture = cv2.VideoCapture(self.source)
+            if self.source.isdigit():
+                self.source = int(self.source)
+                self.capture = cv2.VideoCapture(self.source)
+            else:
+                if not os.path.exists(self.source):
+                    raise FileNotFoundError(f"Video file not found at path: {self.source}")
+                self.capture = cv2.VideoCapture(self.source)
         else:
             self.capture = cv2.VideoCapture(self.source)
 
