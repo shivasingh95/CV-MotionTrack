@@ -56,9 +56,10 @@ class VideoProcessor:
                 self.source = int(self.source)
                 self.capture = cv2.VideoCapture(self.source)
             else:
-                if not os.path.exists(self.source):
+                norm_path = os.path.normpath(os.path.abspath(self.source))
+                if not os.path.exists(norm_path):
                     raise FileNotFoundError(f"Video file not found at path: {self.source}")
-                self.capture = cv2.VideoCapture(self.source)
+                self.capture = cv2.VideoCapture(norm_path)
         else:
             self.capture = cv2.VideoCapture(self.source)
 

@@ -504,6 +504,10 @@ class CVMotionTrackApp:
 
         try:
             self.video_processor = VideoProcessor(source=self.current_source, config=self.config.video)
+            if not self.video_processor.open():
+                messagebox.showerror("Stream Error", f"Failed to open video source:\n{self.current_source}")
+                self.status_text.set("Status: Error opening video source.")
+                return
         except Exception as e:
             messagebox.showerror("Stream Error", f"Failed to open video source:\n{e}")
             self.status_text.set("Status: Error opening video source.")
