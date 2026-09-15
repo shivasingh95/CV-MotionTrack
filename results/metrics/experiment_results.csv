@@ -9,3 +9,4 @@ Comparison: Config A (Low Compute),scenario_2_multi_object.avi (Config A),50,0.2
 Comparison: Config B (High Compute),scenario_2_multi_object.avi (Config B),50,0.269,186.07,5.37,1.42,2,13,2,35.5,8.84,0,7.32,146.41
 cli_synthetic_demo.avi,synthetic_demo.avi,15,0.113,132.96,7.52,0.67,1,5,1,10.0,3.73,0,8.81,264.41
 cli_synthetic_demo.avi,synthetic_demo.avi,5,0.043,116.39,8.59,0.0,0,5,0,0.0,3.2,0,0.0,0.0
+cli_synthetic_demo.avi,synthetic_demo.avi,5,0.037,135.55,7.38,0.0,0,5,0,0.0,3.2,0,0.0,0.0

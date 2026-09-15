@@ -429,7 +429,7 @@ class OpticalFlowAnalyzer:
             curr_frame = previous_gray_or_current
             self._validate_frame(curr_frame, "Current frame")
 
-            if self.prev_gray is None:
+            if self.prev_gray is None or self.prev_gray.shape != curr_frame.shape:
                 self.initialize(curr_frame)
                 return []
             prev_frame = self.prev_gray

@@ -712,9 +712,9 @@ class CVMotionTrackApp:
             object_rows = []
             for track in tracked_objects:
                 m_info = motion_data.get(track.object_id)
-                direction_str = m_info.direction.value if m_info else "STATIONARY"
+                direction_str = str(m_info.direction) if m_info else "STATIONARY"
                 disp_val = f"{m_info.displacement:.1f}" if m_info else "0.0"
-                vel_val = f"{m_info.velocity_sec:.1f}" if m_info else "0.0"
+                vel_val = f"{m_info.velocity:.1f}" if m_info else "0.0"
                 trail_len = len(track.trajectory)
                 object_rows.append((track.object_id, direction_str, disp_val, vel_val, trail_len))
 
