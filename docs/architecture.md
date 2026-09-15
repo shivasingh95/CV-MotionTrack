@@ -1,4 +1,4 @@
-﻿# System Architecture — CV-MotionTrack
+# System Architecture — CV-MotionTrack
 
 **Academic Coursework: CSE3010 Computer Vision**
 
@@ -12,6 +12,7 @@ Every module corresponds directly to a Python source file in `src/`.
 ```mermaid
 flowchart TD
     User(["👤 User"])
+    CLI["CLI Module\nsrc/cli.py\nrun_cli_pipeline()"]
     UI["Tkinter GUI\nsrc/ui.py\nCVMotionTrackApp"]
     CFG["Configuration\nsrc/config.py\nAppConfig"]
     VP["Video Processor\nsrc/video_processor.py\nVideoProcessor"]
@@ -24,11 +25,12 @@ flowchart TD
     EVAL["Evaluation\nsrc/evaluation.py\nEvaluator"]
 
     RESULTS["Results"]
-    AF["Annotated Frames\n(display / PNG)"]
+    AF["Annotated Frames / Video Output"]
     MET["Metrics\n(CSV / JSON)"]
-    REP["Reports\n(Terminal)"]
+    REP["Terminal Progress Summary"]
 
-    User --> UI
+    User -->|"python main.py --source ..."| CLI
+    User -->|"python main.py --gui"| UI
     CFG -->|"hyperparameters"| VP
     CFG -->|"hyperparameters"| PP
     CFG -->|"hyperparameters"| DET
@@ -37,6 +39,7 @@ flowchart TD
     CFG -->|"hyperparameters"| MA
     CFG -->|"hyperparameters"| VIS
 
+    CLI --> VP
     UI --> VP
     VP -->|"BGR frame"| PP
     PP -->|"grayscale frame"| DET

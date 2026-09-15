@@ -1,131 +1,143 @@
-# CV-MotionTrack: Real-Time Object Detection, Tracking and Motion Analysis System
+# CV-MotionTrack
 
-> **Coursework**: CSE3010 Computer Vision  
-> **Repository**: [GitHub — CV-MotionTrack](https://github.com/shiva-raghuwanshi/Computer_vision_project)  
-> **Status**: Step 11 — Final Documentation, System Diagrams, Evaluation, and Cleanup Completed
-
----
-
-## 1. Executive Summary
-
-**CV-MotionTrack** is a modular, transparent, and interpretable Computer Vision system designed to detect moving objects, track multi-target identities and spatio-temporal trajectories across video frames, estimate apparent motion fields via sparse optical flow, and compute real-time kinematic telemetry (displacement, heading direction, and velocity).
-
-Designed specifically for the **CSE3010 Computer Vision** curriculum, CV-MotionTrack deliberately implements classical computer vision techniques from first principles—including spatial intensity transformations, Gaussian filtering, Gaussian Mixture Model (MOG2) background subtraction, mathematical morphology, centroid association, Shi-Tomasi corner detection, and pyramidal Lucas-Kanade optical flow.
-
-The system is completely free of opaque deep-learning models (no YOLO, DeepSORT, or neural network backbones), ensuring that every intermediate spatial transformation, binary mask, and kinematic metric remains mathematically explainable, verifiable, and computationally lean (executing at 100–220+ FPS on modern CPU hardware).
+> **Academic Course Project**: CSE3010 Computer Vision  
+> **Evaluation System Status**: Submission Ready & Verified
 
 ---
 
-## 2. Key Features
+## 1. Project Overview
 
-- **Strictly Modular Architecture**: Loosely coupled subsystems communicating exclusively via strongly typed Python dataclasses (`Detection`, `TrackedObject`, `OpticalFlowPoint`, `MotionData`).
-- **Flexible Stream Ingestion**: Dual input support for physical USB/integrated webcams (device indices `0`, `1`) and recorded video files (`.mp4`, `.avi`) with stream health validation and graceful EOF teardown.
-- **Classical Noise Suppression**: Luminance conversion via ITU-R BT.601 psychophysical weighting and isotropic 2D Gaussian spatial smoothing to attenuate camera sensor noise.
-- **Adaptive Foreground Segmentation**: Online Gaussian Mixture Model (MOG2) background subtraction with per-pixel variance modeling and shadow discrimination.
-- **Morphological Artifact Elimination**: Binary thresholding, morphological Opening (erosion then dilation) to eradicate salt-and-pepper noise, and Closing (dilation then erosion) to seal internal object voids.
-- **Multi-Object Centroid Tracking**: Greedy Euclidean bipartite matching with unique persistent ID generation, configurable maximum association distance, disappearance grace tolerance, and historical trajectory recording.
-- **Pyramidal Lucas-Kanade Optical Flow**: High-performance sparse optical flow tracking salient Shi-Tomasi corner features across consecutive temporal frames with automatic point replenishment.
-- **Image-Space Kinematic Telemetry**: Rigorous estimation of inter-frame Euclidean displacement, cumulative path length, 8-sector qualitative directional classification, heading angle ($\theta = \text{atan2}(dy, dx)$), and rolling moving-average smoothed velocity in pixels/frame and pixels/second.
-- **Real-Time Diagnostic Visual Overlay**: Diagnostic HUD cards displaying frame indices, pipeline FPS, active track count, detection bounding boxes with ID badges, trajectory trails, and optical flow displacement arrows.
-- **Comprehensive Evaluation & Profiling**: Automated metrics collection engine profiling pipeline latency, frame rates, detection precision, and track longevity with CSV/JSON export.
-- **Professional Desktop GUI**: Built with Tkinter and ttk featuring a modern dark theme, background processing worker thread, live aspect-ratio video display, real-time hyperparameter adjustment sliders, live kinematics table, and timestamped screenshot capture.
+**CV-MotionTrack** is a modular, classical Computer Vision software system designed to analyze live video feeds from local webcams or recorded video streams. It receives raw RGB/BGR video frames, applies spatial intensity transformations and noise filtering, performs foreground modeling via statistical background subtraction, tracks moving-object identities and trajectories across successive frames, estimates apparent motion fields using sparse optical flow, and derives quantitative image-space kinematic metrics (displacement, heading direction, and velocity).
+
+Rather than relying on opaque deep-learning models or external black-box frameworks (such as YOLO or DeepSORT), CV-MotionTrack is constructed strictly from foundational computer vision principles as taught in the **CSE3010** curriculum. Every intermediate spatial mask, feature point, and kinematic observation remains mathematically explainable, transparent, and computationally efficient.
 
 ---
 
-## 3. Computer Vision Concepts & Syllabus Alignment
+## 2. Problem Statement
 
-CV-MotionTrack maps directly to the foundational computer vision concepts outlined in the **CSE3010** curriculum:
+Automated visual surveillance, traffic flow monitoring, and biomechanical analysis require robust, real-time motion perception without the substantial hardware overhead and lack of interpretability associated with end-to-end deep neural networks. In constrained computational environments or academic evaluation scenarios where transparency into intermediate spatial and temporal representations is paramount, classical Computer Vision techniques—such as statistical background subtraction, morphological noise suppression, centroid tracking, and differential optical flow—provide a deterministic, explainable, and lightweight solution.
 
-| Syllabus Topic | Mathematical / Theoretical Formulation | Primary Source File | Primary Class / Function |
+The primary challenge is designing an integrated, loosely coupled pipeline that gracefully handles spatial sensor noise, dynamic background variations, identity association across frames, and accurate spatio-temporal velocity estimation in real time.
+
+---
+
+## 3. Objectives
+
+1. **Modular Architecture**: Design an extensible, decoupled computer vision architecture separating video acquisition, spatial preprocessing, foreground segmentation, tracking, optical flow, kinematic analysis, evaluation, and presentation.
+2. **Classical Preprocessing**: Apply luminance normalization and 2D Gaussian spatial filtering to attenuate camera sensor noise while preserving edge boundaries.
+3. **Foreground Segmentation**: Implement statistical background modeling (Gaussian Mixture Models / MOG2) coupled with morphological filtering to segment moving foreground regions.
+4. **Multi-Object Tracking**: Associate detected foreground regions across frames using greedy Euclidean distance matching, maintaining unique object identities and trajectory histories.
+5. **Differential Motion Estimation**: Integrate Lucas-Kanade sparse optical flow to estimate local apparent velocity vectors.
+6. **Kinematic Parameter Extraction**: Derive physical motion metrics including Euclidean displacement, heading angle in degrees, 8-sector directional classification, and rolling moving-average velocity in pixels per second.
+7. **Dual-Mode Execution**: Support both a zero-dependency Command-Line Interface (CLI) for automated grading and server execution, and an optional desktop Graphical User Interface (GUI).
+
+---
+
+## 4. Features
+
+- **Command-Line Interface (CLI)**: Full support for `--source webcam`, `--source video --input <path>`, `--min-area`, `--max-distance`, `--output`, and `--save-results`.
+- **Flexible Video Acquisition**: Support for both physical USB/integrated webcams (device index `0`) and local video files (`.mp4`, `.avi`, `.mov`).
+- **Adaptive Background Subtraction**: Online Gaussian Mixture Model (MOG2) that learns multi-modal background distributions over time.
+- **Morphological Artifact Suppression**: Erosion and dilation filters (Opening/Closing) to eradicate false-positive camera noise and fill internal blob voids.
+- **Multi-Object Centroid Tracking**: Greedy nearest-neighbor centroid association with unique ID persistence, disappearance grace tolerance, and trajectory recording.
+- **Sparse Optical Flow Analysis**: Pyramidal Lucas-Kanade differential optical flow tracking Shi-Tomasi corner features across consecutive video frames with dynamic point replenishment.
+- **Image-Space Kinematics**: Frame-to-frame displacement, 8-sector qualitative directional classification, heading angle, path length, and rolling moving-average velocity.
+- **Optional Desktop GUI**: Modern dark-themed Tkinter app (`python main.py --gui`) with background worker thread, live aspect-ratio video display, live hyperparameter tuning sliders, live telemetry table, and screenshot capture.
+- **Automated Test Suite**: 89 automated pytest tests verifying individual subsystem components, edge cases, integration workflows, and CLI flags.
+
+---
+
+## 5. Computer Vision Techniques
+
+CV-MotionTrack directly implements foundational concepts from the CSE3010 Computer Vision syllabus:
+
+- **Image Preprocessing**: Converts 3-channel BGR input to scalar luminance (grayscale) via standard ITU-R BT.601 psychophysical weighting ($Y = 0.299R + 0.587G + 0.114B$).
+- **Gaussian Filtering**: Convolves grayscale frames with an isotropic 2D Gaussian kernel ($G(x, y; \sigma) = \frac{1}{2\pi\sigma^2} e^{-\frac{x^2+y^2}{2\sigma^2}}$) to suppress high-frequency thermal sensor noise.
+- **Background Subtraction**: Models temporal pixel intensity history as a mixture of $K$ adaptive Gaussians (MOG2) to segment foreground pixels.
+- **Morphological Processing**: Applies binary thresholding to eliminate shadow pixels, followed by morphological Opening $((A \ominus B) \oplus B)$ and Closing $((A \oplus B) \ominus B)$ using rectangular structuring elements.
+- **Contour-Based Detection**: Traces external contours (`cv2.findContours`), filters blobs by pixel area thresholds (`MIN_OBJECT_AREA`), and computes spatial image moment centroids ($c_x = \frac{M_{10}}{M_{00}}, c_y = \frac{M_{01}}{M_{00}}$).
+- **Centroid-Based Tracking**: Associates foreground detections to existing tracks across frames via Euclidean distance minimization.
+- **Sparse Optical Flow (KLT)**: Detects salient corner features using the Shi-Tomasi minimum eigenvalue criterion ($R = \min(\lambda_1, \lambda_2) > \tau$) and tracks them across frames using pyramidal Lucas-Kanade solving the brightness constancy equation ($I_x u + I_y v + I_t = 0$).
+- **Spatio-Temporal Motion Analysis**: Derives frame-to-frame displacement ($\Delta d$), heading angle ($\theta = \text{atan2}(dy, dx)$), 8-sector qualitative direction, and rolling moving-average velocity ($v_{\text{sec}} = v \cdot \text{FPS}$).
+
+---
+
+## 6. CSE3010 Concept Mapping
+
+| CSE3010 Syllabus Concept | Project Implementation | Source Module | Primary Function / Class |
 |---|---|---|---|
-| **Luminance Conversion** | $Y = 0.299R + 0.587G + 0.114B$ | `src/preprocessing.py` | `Preprocessor.to_grayscale()` |
-| **Gaussian Spatial Filtering** | $G(x, y; \sigma) = \frac{1}{2\pi\sigma^2} e^{-\frac{x^2+y^2}{2\sigma^2}}$ | `src/preprocessing.py` | `Preprocessor.apply_gaussian_blur()` |
-| **Background Modeling** | $P(I_t) = \sum_{k=1}^K \omega_{k,t} \cdot \mathcal{N}(I_t; \mu_{k,t}, \Sigma_{k,t})$ | `src/detector.py` | `ObjectDetector.apply_background_subtraction()` |
-| **Foreground Thresholding** | $M_{\text{bin}}(x, y) = \mathbb{I}(M_{\text{raw}}(x, y) > 127)$ | `src/detector.py` | `ObjectDetector.clean_mask()` |
-| **Morphological Filtering** | Opening: $(A \ominus B) \oplus B$, Closing: $(A \oplus B) \ominus B$ | `src/detector.py` | `ObjectDetector.clean_mask()` |
-| **Spatial Moments & Centroid** | $c_x = \frac{M_{10}}{M_{00}}, \quad c_y = \frac{M_{01}}{M_{00}}$ | `src/detector.py` | `ObjectDetector.detect_objects()` |
-| **Centroid Tracking** | $\min \sqrt{(x_i - x_j)^2 + (y_i - y_j)^2} < D_{\text{max}}$ | `src/tracker.py` | `ObjectTracker.update()` |
-| **Shi-Tomasi Corners** | $R = \min(\lambda_1, \lambda_2) > \tau, \quad M = \sum \nabla I (\nabla I)^T$ | `src/optical_flow.py` | `OpticalFlowAnalyzer._detect_features()` |
-| **Lucas-Kanade Optical Flow** | $I_x u + I_y v + I_t = 0 \implies (A^T A)\mathbf{v} = A^T\mathbf{b}$ | `src/optical_flow.py` | `OpticalFlowAnalyzer.update()` |
-| **Kinematic Displacement** | $\Delta d = \sqrt{(x_t - x_{t-1})^2 + (y_t - y_{t-1})^2}$ | `src/motion_analysis.py` | `MotionAnalyzer._compute_displacement()` |
-| **Directional Heading** | $\theta = (\text{atan2}(dy, dx) \cdot \frac{180}{\pi}) \pmod{360^\circ}$ | `src/motion_analysis.py` | `MotionAnalyzer._compute_direction()` |
-| **Image-Space Velocity** | $v = \frac{\Delta d}{\Delta t}$ (px/frame) or $v \cdot \text{FPS}$ (px/s) | `src/motion_analysis.py` | `MotionAnalyzer._compute_velocity()` |
-| **Spatio-Temporal Analysis** | $\mathcal{T} = \{(x_k, y_k, t_k)\}_{k=1}^N$ rolling trajectory | `src/motion_analysis.py` | `MotionAnalyzer.update()` |
-
-> **Academic Limitation**: The system operates on an uncalibrated monocular camera feed without depth perception or physical world scale calibration. Consequently, velocities and displacements are strictly measured in **pixels** and **pixels/second** rather than metric units ($\text{m/s}$, $\text{km/h}$).
+| **Image Preprocessing** | Grayscale conversion & Gaussian smoothing | `src/preprocessing.py` | `Preprocessor.process()` |
+| **Background Subtraction** | Adaptive Gaussian Mixture Model (MOG2) | `src/detector.py` | `ObjectDetector.apply_background_subtraction()` |
+| **Object Detection** | Binary thresholding, morphology & contours | `src/detector.py` | `ObjectDetector.detect_objects()` |
+| **Object Tracking** | Centroid-based Euclidean distance association | `src/tracker.py` | `ObjectTracker.update()` |
+| **Optical Flow** | Pyramidal Lucas-Kanade motion vectors | `src/optical_flow.py` | `OpticalFlowAnalyzer.update()` |
+| **KLT Point Tracking** | Shi-Tomasi feature tracking & replenishment | `src/optical_flow.py` | `OpticalFlowAnalyzer._detect_features()` |
+| **Spatio-Temporal Analysis** | Rolling trajectory history queues | `src/motion_analysis.py` | `MotionAnalyzer.update()` |
+| **Motion Parameter Estimation** | Displacement, 8-sector direction, smoothed velocity | `src/motion_analysis.py` | `MotionAnalyzer._compute_velocity()` |
 
 ---
 
-## 4. System Architecture & Workflow
-
-The system is structured into five distinct abstraction layers:
+## 7. System Architecture
 
 ```
-+-------------------------------------------------------------------------------+
-|                             1. PRESENTATION LAYER                             |
-|    - Tkinter Desktop GUI (src/ui.py)        - HighGUI Interactive (main.py)   |
-|    - Real-Time Controls & Sliders           - Live HUD Telemetry Overlay      |
-+-------------------------------------------------------------------------------+
-                                       |
-                                       v
-+-------------------------------------------------------------------------------+
-|                            2. COORDINATION LAYER                              |
-|    - VideoProcessor (src/video_processor.py) - Central Config (src/config.py)  |
-|    - Pipeline Thread Orchestration          - Evaluator (src/evaluation.py)   |
-+-------------------------------------------------------------------------------+
-                                       |
-                                       v
-+-------------------------------------------------------------------------------+
-|                      3. COMPUTER VISION ALGORITHM LAYER                       |
-|  [Preprocessing]    -> Grayscale conversion & Gaussian smoothing              |
-|  [ObjectDetector]   -> MOG2 background subtraction & Morphological filtering  |
-|  [ObjectTracker]    -> Euclidean centroid matching & ID lifecycle             |
-|  [OpticalFlow]      -> Shi-Tomasi corners & Lucas-Kanade motion vectors       |
-|  [MotionAnalyzer]   -> Displacement, heading direction, rolling velocity      |
-+-------------------------------------------------------------------------------+
-                                       |
-                                       v
-+-------------------------------------------------------------------------------+
-|                             4. DATA CONTRACT LAYER                            |
-|  - BoundingBox     - Detection     - TrackedObject     - OpticalFlowPoint     |
-|  - MotionData      - AppConfig     - MetricRecords (src/data_models.py)       |
-+-------------------------------------------------------------------------------+
-                                       |
-                                       v
-+-------------------------------------------------------------------------------+
-|                             5. VISUALIZATION LAYER                            |
-|  - Visualizer (src/visualizer.py): Bounding boxes, IDs, trajectory trails,    |
-|    optical flow arrows, HUD telemetry card, warning status banners            |
-+-------------------------------------------------------------------------------+
+                 ┌── CLI Mode (src/cli.py) ──┐
+                 │                           │
+Input Stream ──► VideoProcessor ──► Core CV Pipeline ──► Results / Video Output / Metrics
+                 │                           │
+                 └── GUI Mode (src/ui.py) ───┘
 ```
 
-### End-to-End Processing Workflow
-1. **Frame Capture**: `VideoProcessor` reads raw frame $I_t \in \mathbb{R}^{H \times W \times 3}$.
-2. **Preprocessing**: `Preprocessor` converts $I_t$ to grayscale luminance and convolves with an isotropic Gaussian kernel ($5 \times 5$, $\sigma=1.0$).
-3. **Foreground Segmentation**: `ObjectDetector` updates the MOG2 background model, extracts the ternary mask, thresholds shadows, and applies morphological Opening and Closing.
-4. **Contour Extraction**: External contours are filtered by area (`MIN_OBJECT_AREA`), yielding `List[Detection]` containing bounding boxes and spatial moment centroids.
-5. **Centroid Tracking**: `ObjectTracker` matches new centroids to existing tracks using Euclidean distance minimization, updating `List[TrackedObject]`.
-6. **Optical Flow**: `OpticalFlowAnalyzer` tracks Shi-Tomasi feature points across frames using pyramidal Lucas-Kanade, returning `List[OpticalFlowPoint]`.
-7. **Motion Analysis**: `MotionAnalyzer` updates trajectory histories, computes inter-frame displacement, classifies 8-sector heading angle, and updates smoothed velocities in `Dict[int, MotionData]`.
-8. **Evaluation Profiling**: `Evaluator` records frame execution timestamps and pipeline metrics.
-9. **Rendering**: `Visualizer` renders composited telemetry overlays onto the display frame for Tkinter GUI or OpenCV display.
+The core Computer Vision algorithms (`src/preprocessing.py`, `src/detector.py`, `src/tracker.py`, `src/optical_flow.py`, `src/motion_analysis.py`) remain completely shared and decoupled from presentation controllers.
 
 ---
 
-## 5. Repository Structure
+## 8. Workflow
+
+```
+Video Frame (BGR)
+       │
+       ▼
+Preprocessing (Grayscale + 2D Gaussian Blur)
+       │
+       ▼
+Background Subtraction (MOG2 + Shadow Thresholding)
+       │
+       ▼
+Morphological Filtering (Opening + Closing)
+       │
+       ▼
+Contour Detection & Spatial Moment Centroids
+       │
+       ▼
+Multi-Object Centroid Association & ID Tracking
+       │
+       ▼
+Sparse Optical Flow (Shi-Tomasi Corners + Pyramidal Lucas-Kanade)
+       │
+       ▼
+Spatio-Temporal Motion Kinematics (Displacement, Direction, Velocity)
+       │
+       ▼
+Diagnostic HUD Rendering & Evaluation Logging
+```
+
+---
+
+## 9. Project Structure
 
 ```
 Computer_vision_project/
 │
-├── main.py                         # Application entry point (GUI & CLI pipeline runner)
-├── requirements.txt                # Lean Python package dependencies
-├── README.md                       # Comprehensive project documentation
+├── main.py                         # Application entry point (CLI and GUI dispatcher)
+├── requirements.txt                # Python package dependencies
+├── README.md                       # Comprehensive submission-ready documentation
 ├── statement.md                    # Problem statement, scope, FR1-FR10, and NFRs
 ├── conftest.py                     # Root pytest configuration
 │
 ├── src/                            # Core Computer Vision source package
 │   ├── __init__.py                 # Package declaration and public exports
-│   ├── config.py                   # Centralized dataclass configurations (AppConfig)
+│   ├── cli.py                      # Command-Line Interface module
+│   ├── config.py                   # Centralized AppConfig dataclasses
 │   ├── data_models.py              # Typed data models (Detection, TrackedObject, etc.)
 │   ├── preprocessing.py            # Grayscale conversion and Gaussian blur
 │   ├── detector.py                 # MOG2 background subtraction and morphology
@@ -133,71 +145,64 @@ Computer_vision_project/
 │   ├── optical_flow.py             # Shi-Tomasi corners and Lucas-Kanade flow
 │   ├── motion_analysis.py          # Kinematic parameter extraction and smoothing
 │   ├── visualizer.py               # Telemetry HUD and visual overlay renderer
-│   ├── video_processor.py          # Video capture, stream validation, and teardown
+│   ├── video_processor.py          # Video capture stream validation and handling
 │   ├── evaluation.py               # Automated performance profiling engine
 │   └── ui.py                       # Tkinter desktop graphical user interface
 │
-├── docs/                           # System architecture and technical documentation
-│   ├── architecture.md             # System architecture and layer breakdown
-│   ├── workflow.md                 # Execution lifecycle and sequence workflows
-│   ├── algorithms.md               # Detailed CV mathematics and theoretical formulations
-│   ├── evaluation.md               # Evaluation methodology, metrics, and experimental protocol
-│   └── uml.md                      # UML Use Case, Class, and Sequence diagrams
+├── docs/                           # Architecture, workflow, algorithms, evaluation & UML docs
+│   ├── architecture.md
+│   ├── workflow.md
+│   ├── algorithms.md
+│   ├── evaluation.md
+│   └── uml.md
 │
 ├── experiments/                    # Reproducible experiment testbench
-│   ├── README.md                   # Experiment instructions and scenario descriptions
-│   ├── generate_scenarios.py       # Synthetic video scenario generator
-│   └── run_experiments.py          # Automated experiment evaluation runner
+│   ├── generate_scenarios.py
+│   └── run_experiments.py
 │
 ├── data/                           # Video asset directories
-│   ├── input/                      # Input video files (sample clips and synthetic scenarios)
-│   │   ├── .gitkeep
-│   │   ├── synthetic_demo.avi
-│   │   ├── scenario_1_single_object.avi
-│   │   ├── scenario_2_multi_object.avi
-│   │   ├── scenario_3_slow_motion.avi
-│   │   ├── scenario_4_fast_motion.avi
-│   │   ├── scenario_5_reentry.avi
-│   │   └── scenario_6_background_variation.avi
+│   ├── input/                      # Input video clips (sample clips and synthetic scenarios)
 │   └── output/                     # Exported processed videos
-│       └── .gitkeep
 │
 ├── results/                        # Generated experimental artifacts
-│   ├── metrics/                    # Quantitative evaluation results
-│   │   ├── experiment_results.csv  # Benchmark CSV metrics across all scenarios
-│   │   └── experiment_results.json # Full benchmark JSON dataset
-│   ├── reports/                    # Generated summary reports
-│   │   └── .gitkeep
+│   ├── metrics/                    # CSV/JSON benchmark results
+│   ├── reports/                    # Summary evaluation reports
 │   └── screenshots/                # Exported annotated screenshots
-│       └── .gitkeep
 │
-└── tests/                          # Comprehensive automated test suite (86 tests)
-    ├── test_preprocessing.py       # 8 unit tests: grayscale, blur, edge cases
-    ├── test_detector.py            # 14 unit tests: MOG2 masks, morphology, contours
-    ├── test_tracker.py             # 4 unit tests: registration, matching, deregistration
-    ├── test_optical_flow.py        # 11 unit tests: corners, Lucas-Kanade flow, replenishment
-    ├── test_motion_analysis.py     # 16 unit tests: displacement, heading, velocity smoothing
-    ├── test_integration.py         # 8 integration tests: end-to-end pipeline execution
-    ├── test_evaluation.py          # 11 unit tests: latency, FPS, CSV/JSON serialization
-    └── test_ui.py                  # 6 GUI tests: state machine, threading, widget updates
+└── tests/                          # Automated pytest suite (89 tests)
+    ├── test_cli.py
+    ├── test_preprocessing.py
+    ├── test_detector.py
+    ├── test_tracker.py
+    ├── test_optical_flow.py
+    ├── test_motion_analysis.py
+    ├── test_integration.py
+    ├── test_evaluation.py
+    └── test_ui.py
 ```
 
 ---
 
-## 6. Installation & Verification
+## 10. Requirements
 
-### Prerequisites
-- **Operating System**: Windows 10/11, macOS, or Linux
 - **Python**: Version 3.10 or higher
-- **Hardware**: Standard x86_64 or ARM CPU (No dedicated GPU required)
+- **OpenCV** (`opencv-python` $\ge 4.8.0$)
+- **NumPy** ($\ge 1.24.0$)
+- **Pillow** ($\ge 10.0.0$)
+- **Pytest** ($\ge 7.4.0$)
+- **Matplotlib** ($\ge 3.7.0$)
 
-### Step 1: Clone the Repository
+---
+
+## 11. Installation
+
+### Step 1: Clone Repository
 ```bash
-git clone https://github.com/shiva-raghuwanshi/Computer_vision_project.git
-cd Computer_vision_project
+git clone https://github.com/shivasingh95/CV-MotionTrack.git
+cd CV-MotionTrack
 ```
 
-### Step 2: Create and Activate a Virtual Environment
+### Step 2: Create Virtual Environment
 **Windows (PowerShell):**
 ```powershell
 python -m venv venv
@@ -210,181 +215,137 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-### Step 3: Install Required Dependencies
+### Step 3: Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 4: Verify with the Automated Test Suite
-Run the complete test suite to confirm all subsystems pass:
+---
+
+## 12. Command-Line Execution
+
+The application is fully executable from the command line without requiring a GUI display:
+
+### View Help & Options
+```bash
+python main.py --help
+```
+
+### Execute on Webcam Input
+```bash
+python main.py --source webcam
+```
+
+### Execute on Video File Input
+```bash
+python main.py --source video --input data/input/synthetic_demo.avi
+```
+
+### Execute with Custom Hyperparameters & Output Recording
+```bash
+python main.py --source video --input data/input/synthetic_demo.avi --min-area 100 --max-distance 60 --output data/output/annotated_result.mp4 --save-results
+```
+
+### Execute in Headless Mode (Server / Automated Evaluation)
+```bash
+python main.py --source video --input data/input/synthetic_demo.avi --headless --save-results
+```
+
+---
+
+## 13. GUI Execution
+
+To launch the optional desktop Graphical User Interface (Tkinter GUI):
+```bash
+python main.py --gui
+```
+*(or run `python src/ui.py` directly)*
+
+---
+
+## 14. Testing
+
+Run the automated test suite to verify system integrity across 89 unit and integration tests:
 ```bash
 pytest -v
 ```
-*Expected result*: **86 passed** in ~2–4 seconds.
+
+*Tested Components*:
+- `test_cli.py`: Argument parsing, input path validation, and CLI runner.
+- `test_preprocessing.py`: Grayscale conversion, Gaussian blur kernel sizing, error handling.
+- `test_detector.py`: MOG2 mask generation, shadow thresholding, morphology, contour area filtering.
+- `test_tracker.py`: Centroid registration, association matching, disappearance handling.
+- `test_optical_flow.py`: Shi-Tomasi corner detection, Lucas-Kanade flow, feature replenishment.
+- `test_motion_analysis.py`: Inter-frame displacement, 8-sector direction classification, velocity smoothing.
+- `test_integration.py`: End-to-end pipeline execution on synthetic streams.
+- `test_evaluation.py`: Frame profiling, latency calculation, CSV/JSON metrics export.
+- `test_ui.py`: Tkinter app initialization, settings propagation, treeview updating, frame saving.
 
 ---
 
-## 7. How to Test and Run the Demo
+## 15. Evaluation
 
-CV-MotionTrack provides multiple flexible execution modes suitable for demonstration, evaluation, and live testing:
-
-### Option A: Desktop Graphical User Interface (Recommended Demo)
-Launch the professional desktop GUI by running:
-```bash
-python main.py
-```
-*(or explicitly with `python main.py --ui`)*
-
-**GUI Demonstration Walkthrough**:
-1. Click **"Select Video File"** and choose `data/input/scenario_2_multi_object.avi` (or click **"Use Webcam"** to use your live camera).
-2. Click **"Start Processing"** to begin real-time multi-threaded tracking.
-3. Observe the live video canvas rendering bounding boxes, tracking ID badges, motion vectors, and trajectory trails.
-4. Watch the **Kinematics Table** on the right side dynamically update object IDs, directions, displacements, and velocities.
-5. Experiment with live sliders in the **Vision Parameters** panel:
-   - Adjust **Min Contour Area** to filter out smaller moving blobs.
-   - Adjust **Max Tracking Dist** to tune centroid association radius.
-   - Adjust **Shi-Tomasi Corners** to modify optical flow point density.
-6. Click **"Save Frame"** (or press `S`) to capture a timestamped annotated screenshot in `results/screenshots/`.
-7. Click **"Pause"** (`P`), **"Resume"** (`P`), or **"Reset"** (`R`) to test state management.
+The system includes an automated evaluation profiling engine (`src/evaluation.py`) that collects per-frame performance metrics:
+- Sub-millisecond latency per frame using `time.perf_counter()`.
+- Pipeline throughput in frames per second (FPS).
+- Detections per frame and zero-detection count.
+- Active track longevity and track deregistrations.
+- Lucas-Kanade optical flow point counts and feature re-initialization events.
+- Kinematic metrics: mean displacement (pixels) and velocity ($\text{px/s}$).
 
 ---
 
-### Option B: Interactive OpenCV Display Mode
-Run the pipeline directly in an interactive OpenCV HighGUI window on any test scenario video:
-```bash
-# Test single object tracking scenario:
-python main.py --source data/input/scenario_1_single_object.avi
+## 16. Results
 
-# Test multi-object tracking scenario:
-python main.py --source data/input/scenario_2_multi_object.avi
+All results reported below are **actual empirical measurements** collected across standardized benchmark test scenarios and exported to `results/metrics/experiment_results.csv`:
 
-# Test fast motion scenario:
-python main.py --source data/input/scenario_4_fast_motion.avi
-```
-
-**Interactive Keyboard Controls in OpenCV Mode**:
-| Key | Action | Description |
-|:---:|:---|:---|
-| `Q` / `Esc` | **Quit** | Safely terminates processing and prints evaluation metrics summary. |
-| `P` | **Pause / Resume** | Toggles frame processing while keeping tracking state intact. |
-| `R` | **Reset** | Clears active tracks, optical flow points, and motion histories. |
-| `S` | **Save Frame** | Captures the current annotated frame to `results/screenshots/`. |
-
----
-
-### Option C: Live Webcam Mode
-Test real-time tracking with an integrated or USB webcam:
-```bash
-# OpenCV display window:
-python main.py --source 0
-
-# Or with automated evaluation profiling enabled:
-python main.py --source 0 --eval
-```
-
----
-
-### Option D: Headless Automated Profiling Mode
-Run high-speed automated evaluation without GUI window overhead (ideal for CI/CD or benchmarking):
-```bash
-python main.py --source data/input/scenario_2_multi_object.avi --headless --eval
-```
-
----
-
-### Option E: Full Automated Experiment Benchmark Suite
-Generate fresh test videos and run the full comparative evaluation suite across all 6 scenarios and configurations:
-```bash
-# Generate synthetic test scenarios:
-python experiments/generate_scenarios.py
-
-# Run the complete experimental evaluation suite:
-python experiments/run_experiments.py
-```
-This updates `results/metrics/experiment_results.csv` and `results/metrics/experiment_results.json`.
-
----
-
-## 8. Empirical Evaluation & Benchmark Results
-
-All quantitative performance metrics were collected using the evaluation framework (`src/evaluation.py`) across standardized test scenarios. **Every reported metric reflects real experimental measurements.**
-
-### Empirical Results Summary Table
-
-| Scenario | Description | Frames | Avg FPS | Latency (ms/frame) | Registered Tracks | Avg Lifetime (frames) | Avg Displacement (px/frame) | Avg Velocity (px/s) |
+| Scenario | Input Video File | Frames | Avg FPS | Latency (ms/frame) | Registered Tracks | Avg Lifetime (frames) | Avg Displacement (px/frame) | Avg Velocity (px/s) |
 |---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Scenario 1** | Single moving object, constant velocity | 45 | **219.3** | 4.56 ms | 1 | 37.0 | 8.09 px | 161.85 px/s |
-| **Scenario 2** | Two crossing moving objects | 50 | **120.2** | 8.32 ms | 2 | 41.0 | 6.40 px | 128.11 px/s |
-| **Scenario 3** | Slow-moving object ($v < 5$ px/frame) | 50 | **105.7** | 9.46 ms | 1 | 34.0 | 15.30 px | 306.05 px/s |
-| **Scenario 4** | Fast-moving object ($v > 15$ px/frame) | 35 | **119.6** | 8.36 ms | 1 | 15.0 | 19.03 px | 380.59 px/s |
-| **Scenario 5** | Temporary disappearance & re-entry | 65 | **129.2** | 7.74 ms | 2 | 22.5 | 12.27 px | 245.35 px/s |
-| **Scenario 6** | Dynamic background variation | 50 | **128.9** | 7.76 ms | 1 | 42.0 | 6.89 px | 137.74 px/s |
-| **Config A** | Low-Compute Configuration | 50 | **217.8** | 4.59 ms | 3 | 1.0 | 0.00 px | 0.00 px/s |
-| **Config B** | High-Compute Configuration | 50 | **186.1** | 5.37 ms | 2 | 35.5 | 7.32 px | 146.41 px/s |
-
-### Key Experimental Insights
-1. **Real-Time Execution Margin**: Across all scenarios, the pipeline runs between **105 and 220 FPS** on CPU, substantially exceeding the 30 FPS real-time threshold by 3.5× to 7×.
-2. **Computational Bottlenecks**: Per-frame processing latency is distributed primarily between MOG2 Gaussian mixture update (~45%) and Shi-Tomasi/Lucas-Kanade optical flow (~35%), while centroid tracking and kinematics consume < 5%.
-3. **Tracking Continuity**: Centroid tracking successfully maintains object identities across 37–42 continuous frames under standard motion. In Scenario 5 (Re-entry), the object is correctly deregistered after exceeding `MAX_DISAPPEARED_FRAMES=15` and registered as a new identity upon return.
-4. **Configuration Sensitivity**: Config B (smaller Gaussian blur, higher corner count) provides richer tracking telemetry (8.84 flow points vs. coarse noise) with minimal latency penalty (5.37 ms vs. 4.59 ms).
+| **Scenario 1** | `scenario_1_single_object.avi` | 45 | **219.3** | 4.56 ms | 1 | 37.0 | 8.09 px | 161.85 px/s |
+| **Scenario 2** | `scenario_2_multi_object.avi` | 50 | **120.2** | 8.32 ms | 2 | 41.0 | 6.40 px | 128.11 px/s |
+| **Scenario 3** | `scenario_3_slow_motion.avi` | 50 | **105.7** | 9.46 ms | 1 | 34.0 | 15.30 px | 306.05 px/s |
+| **Scenario 4** | `scenario_4_fast_motion.avi` | 35 | **119.6** | 8.36 ms | 1 | 15.0 | 19.03 px | 380.59 px/s |
+| **Scenario 5** | `scenario_5_reentry.avi` | 65 | **129.2** | 7.74 ms | 2 | 22.5 | 12.27 px | 245.35 px/s |
+| **Scenario 6** | `scenario_6_background_variation.avi` | 50 | **128.9** | 7.76 ms | 1 | 42.0 | 6.89 px | 137.74 px/s |
 
 ---
 
-## 9. Mathematical Formulations
+## 17. Screenshots
 
-### 9.1 Preprocessing: Luminance Conversion & Gaussian Smoothing
-Grayscale conversion collapses 3-channel BGR values into scalar intensity $I(x, y)$:
-$$I(x, y) = 0.299 \cdot R + 0.587 \cdot G + 0.114 \cdot B$$
-Gaussian spatial convolution attenuates high-frequency noise with standard deviation $\sigma$:
-$$I_{\text{smooth}}(x, y) = I(x, y) * G(x, y; \sigma) = \sum_{i=-k}^k \sum_{j=-k}^k I(x-i, y-j) \cdot \frac{1}{2\pi\sigma^2} e^{-\frac{i^2+j^2}{2\sigma^2}}$$
-
-### 9.2 Foreground Modeling: Gaussian Mixture Model (MOG2)
-Each pixel intensity history is modeled as a mixture of $K$ adaptive Gaussians:
-$$P(I_t(x, y)) = \sum_{k=1}^K \omega_{k,t} \cdot \frac{1}{(2\pi)^{D/2}|\Sigma_{k,t}|^{1/2}} \exp\left(-\frac{1}{2}(I_t - \mu_{k,t})^T \Sigma_{k,t}^{-1}(I_t - \mu_{k,t})\right)$$
-Pixels deviating by more than $\sqrt{\text{varThreshold}}$ standard deviations are classified as foreground.
-
-### 9.3 Optical Flow: Brightness Constancy & Normal Equations
-Lucas-Kanade assumes local intensity constancy $I(x+u, y+v, t+1) = I(x, y, t)$. First-order Taylor expansion yields:
-$$I_x u + I_y v + I_t = 0$$
-Within a local $w \times w$ neighborhood, the overdetermined system $A\mathbf{v} = \mathbf{b}$ is solved via least squares:
-$$\begin{bmatrix} I_x(p_1) & I_y(p_1) \\ \vdots & \vdots \\ I_x(p_n) & I_y(p_n) \end{bmatrix} \begin{bmatrix} u \\ v \end{bmatrix} = -\begin{bmatrix} I_t(p_1) \\ \vdots \\ I_t(p_n) \end{bmatrix} \implies \mathbf{v} = (A^T A)^{-1} A^T \mathbf{b}$$
-Shi-Tomasi corners ensure $(A^T A)$ is well-conditioned by checking:
-$$R = \min(\lambda_1, \lambda_2) > \lambda_{\text{threshold}}$$
-
-### 9.4 Kinematic Parameter Estimation
-- **Displacement**: $\Delta d = \sqrt{(x_t - x_{t-1})^2 + (y_t - y_{t-1})^2}$
-- **Heading Angle**: $\theta = (\text{atan2}(y_t - y_{t-1}, x_t - x_{t-1}) \cdot \frac{180}{\pi}) \pmod{360^\circ}$
-- **Rolling Average Velocity**: $\bar{v}_t = \frac{1}{\min(W, N)} \sum_{j=0}^{\min(W, N)-1} v_{t-j}$
+Annotated screenshots captured during real-time video processing are stored in the `results/screenshots/` directory:
+- `demo_annotated_frame.jpg`: Composite video overlay featuring bounding boxes, ID badges, trajectory trails, and telemetry HUD card.
+- `comparison_config_A.jpg`: Performance comparison under low-compute configuration settings.
+- `comparison_config_B.jpg`: Performance comparison under high-compute configuration settings.
 
 ---
 
-## 10. Limitations & Future Extensions
+## 18. Limitations
 
-### Academic Limitations
-1. **Lack of Physical Scale**: Monocular video feeds without depth sensors or camera intrinsic calibration cannot determine distance or 3D speed. Velocity is strictly constrained to 2D image-space coordinates ($\text{px/s}$).
-2. **Stationary Camera Assumption**: Statistical background subtraction assumes a static or near-static camera mounting. Sudden camera egomotion falsely triggers large foreground blobs across the entire frame.
-3. **Abrupt Illumination Sensitivity**: Extreme sudden lighting shifts (e.g., flipping a room light switch) disrupt the Gaussian mixture models temporarily before adaptation occurs.
-4. **Centroid Occlusion Merging**: When two objects directly overlap along the camera line of sight, single-contour extraction momentarily merges them into one blob until separation.
-
-### Recommended Future Work
-- **Kalman Filtering**: Incorporate linear Kalman filters into `src/tracker.py` to maintain state estimation vectors $(x, y, \dot{x}, \dot{y})$ during temporary complete occlusions.
-- **Hungarian Matching**: Upgrade greedy nearest-neighbor matching to the Kuhn-Munkres (Hungarian) algorithm for optimal global bipartite assignment.
-- **Homography Matrix Scale Calibration**: Allow manual 4-point ground-plane homography calibration to map pixel coordinates into physical metric units ($\text{m/s}$).
+1. **Uncalibrated Monocular Depth Ambiguity**: Without 3D camera intrinsic/extrinsic calibration or ground-plane homography, physical-world velocity ($\text{m/s}$, $\text{km/h}$) cannot be determined. Motion is strictly reported in image-space pixels and pixels/second.
+2. **Static Camera Assumption**: Statistical background subtraction (MOG2) assumes a static camera setup. Sudden camera ego-motion induces global foreground noise.
+3. **Occlusion Overlap**: When two moving targets cross directly along the line of sight, single-contour extraction momentarily merges them until spatial separation resumes.
 
 ---
 
-## 11. Documentation Reference Guide
+## 19. Future Enhancements
 
-Comprehensive documentation files are available in the [`docs/`](docs/) directory:
-- **[System Architecture](docs/architecture.md)**: Detailed breakdown of the 5-layer architecture and component interfaces.
-- **[Runtime Workflow](docs/workflow.md)**: Execution flowcharts, lifecycle state transitions, and teardown procedures.
-- **[Theoretical Algorithms](docs/algorithms.md)**: Deep mathematical formulations of all classical CV methods.
-- **[Evaluation Methodology](docs/evaluation.md)**: Experimental protocols, metrics definitions, and scenario configurations.
-- **[UML Diagrams](docs/uml.md)**: Official UML Use Case, Class, and Sequence diagrams.
-- **[Problem Statement & Requirements](statement.md)**: Formal problem statement, scope, FR1–FR10, and NFRs.
+- **Kalman Filter Integration**: Incorporating linear Kalman filters for state vector prediction $(x, y, \dot{x}, \dot{y})$ during target occlusions.
+- **Hungarian Bipartite Assignment**: Upgrading greedy Euclidean centroid matching to the Kuhn-Munkres (Hungarian) algorithm.
+- **Planar Homography Calibration**: Allowing user-specified 4-point ground-plane homography matrix calibration to translate pixel displacement into metric distance.
 
 ---
 
-## 12. Academic Integrity & Course Information
+## 20. Technologies & References
 
-This project was developed strictly for academic evaluation in **CSE3010 Computer Vision**. All algorithms are implemented using classical computer vision theory and verified through automated test suites and reproducible experimental protocols. No deep-learning models or external black-box frameworks were utilized.
+### Technologies Used
+- **Python 3.10+**: Core programming language.
+- **OpenCV (`cv2`)**: Computer Vision operations (grayscale, Gaussian blur, MOG2, contours, Lucas-Kanade optical flow).
+- **NumPy**: Matrix computations, Euclidean distance calculation, image moments.
+- **Pillow (`PIL`)**: Image format conversion for Tkinter display.
+- **Tkinter**: Desktop GUI widget layout.
+- **Pytest**: Automated testing framework.
+
+### References & Theoretical Foundations
+1. Zivkovic, Z. (2004). "Improved adaptive Gaussian mixture model for background subtraction." *Proceedings of the 17th International Conference on Pattern Recognition (ICPR)*.
+2. Lucas, B. D., & Kanade, T. (1981). "An iterative image registration technique with an application to stereo vision." *Proceedings of Imaging Understanding Workshop*.
+3. Shi, J., & Tomasi, C. (1994). "Good features to track." *IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*.

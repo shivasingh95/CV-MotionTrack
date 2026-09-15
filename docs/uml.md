@@ -1,4 +1,4 @@
-﻿# UML Diagrams — CV-MotionTrack
+# UML Diagrams — CV-MotionTrack
 
 **Academic Coursework: CSE3010 Computer Vision**
 
@@ -300,12 +300,19 @@ classDiagram
     OpticalFlowAnalyzer --> Visualizer : List~OpticalFlowPoint~
     Visualizer --> CVMotionTrackApp : annotated ndarray
     Evaluator --> CVMotionTrackApp : EvaluationSummary
+    Visualizer --> CLI_Runner : annotated ndarray
+    Evaluator --> CLI_Runner : EvaluationSummary
 ```
 
-### UI Controller
+### Presentation & Entrypoint Controllers
 
 ```mermaid
 classDiagram
+    class CLI_Runner {
+        +parse_cli_args(args_list) Namespace
+        +run_cli_pipeline(args) int
+    }
+
     class CVMotionTrackApp {
         +tk.Tk root
         +AppConfig config
@@ -338,6 +345,15 @@ classDiagram
         +_on_setting_changed(key, val) None
         +on_closing() None
     }
+
+    CLI_Runner --> VideoProcessor : instantiates
+    CLI_Runner --> Preprocessor : instantiates
+    CLI_Runner --> ObjectDetector : instantiates
+    CLI_Runner --> ObjectTracker : instantiates
+    CLI_Runner --> OpticalFlowAnalyzer : instantiates
+    CLI_Runner --> MotionAnalyzer : instantiates
+    CLI_Runner --> Visualizer : instantiates
+    CLI_Runner --> Evaluator : instantiates
 
     CVMotionTrackApp --> VideoProcessor : owns
     CVMotionTrackApp --> Preprocessor : owns
